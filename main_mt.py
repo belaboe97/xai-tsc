@@ -9,7 +9,6 @@ import os
 import numpy as np
 import sys
 import sklearn
-import utils
 from utils.constants import CLASSIFIERS
 from utils.constants import ARCHIVE_NAMES
 from utils.constants import ITERATIONS
@@ -92,7 +91,7 @@ def create_classifier(classifier_name, input_shape, nb_classes_1, nb_classes_2, 
         return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, verbose)
 
     if classifier_name == 'fcn_mt': 
-        from classifiers import fcn_mt
+        from classifiers_mtl import fcn_mt
         return fcn_mt.Classifier_FCN_MT(output_directory, input_shape, nb_classes_1, nb_classes_2, verbose)
 
     if classifier_name == 'resnet':
@@ -134,7 +133,7 @@ if sys.argv[1] == 'run_all':
 
                 tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + trr + '/'
 
-                for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
+                for dataset_name in GeneratingExplanations.constants.dataset_names_for_archive[archive_name]:
                     print('\t\t\tdataset_name: ', dataset_name)
 
                     output_directory = tmp_output_directory + dataset_name + '/'
