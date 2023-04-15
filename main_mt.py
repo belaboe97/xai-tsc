@@ -14,7 +14,7 @@ from utils.constants import CLASSIFIERS
 from utils.constants import ARCHIVE_NAMES
 from utils.constants import ITERATIONS
 from utils.utils import read_all_datasets
-
+import os
 
 def fit_classifier():
 
@@ -94,7 +94,7 @@ def create_classifier(classifier_name, input_shape, nb_classes_1, nb_classes_2, 
     if classifier_name == 'fcn_mt': 
         from classifiers import fcn_mt
         return fcn_mt.Classifier_FCN_MT(output_directory, input_shape, nb_classes_1, nb_classes_2, verbose)
-        
+
     if classifier_name == 'resnet':
         from classifiers import resnet
         return resnet.Classifier_RESNET(output_directory, input_shape, nb_classes, verbose)
@@ -103,19 +103,18 @@ def create_classifier(classifier_name, input_shape, nb_classes_1, nb_classes_2, 
 ############################################### main
 
 # change this directory for your machine
-root_dir = "/content/drive/My Drive/master thesis/code/dl-4-tsc"
-#"G:/My Drive/master thesis/code/dl-4-tsc"
 
-# "/content/drive/My Drive/master thesis/code/dl-4-tsc"
+import os
 
-#"G:/My Drive/master thesis/code/dl-4-tsc"
+if os.getenv("COLAB_RELEASE_TAG"):
+    print("Google Colab Environment detected")
+    root_dir = "/content/drive/My Drive/master thesis/code/dl-4-tsc"
+else: 
+    print("Local Environment detected")
+    root_dir = "G:/My Drive/master thesis/code/dl-4-tsc"
 
 
-#"Google Colab:" /content/drive/My Drive/master thesis/code/dl-4-tsc"
 
-#"/content/drive/My Drive/master thesis/code/dl-4-tsc"
-
-#'/b/home/uha/hfawaz-datas/dl-tsc-temp/'
 
 if sys.argv[1] == 'run_all':
     for classifier_name in CLASSIFIERS:
