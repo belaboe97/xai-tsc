@@ -37,7 +37,7 @@ def fit_classifier():
     y_test_1 = enc.transform(y_test_1.reshape(-1, 1)).toarray()
 
     # save orignal y because later we will use binary
-    y_true = np.argmax(y_test_1, axis=1)
+    y_true_1 = np.argmax(y_test_1, axis=1)
 
     if len(x_train_1.shape) == 2:  # if univariate
         # add a dimension to make it multivariate with one dimension 
@@ -46,18 +46,16 @@ def fit_classifier():
 
     input_shape = x_train_1.shape[1:]
 
-
     """
     For Task 2: Explanation 
-    
     Extract labels: 
     """
-
 
     x_train_2 = datasets_dict_2[dataset_name + "_Exp"][0]
     y_train_2 = datasets_dict_2[dataset_name + "_Exp"][1]
     x_test_2 = datasets_dict_2[dataset_name  + "_Exp"][2]
     y_test_2 = datasets_dict_2[dataset_name  + "_Exp"][3]
+
 
     nb_classes_2 = len(np.unique(np.concatenate((y_train_2, y_test_2), axis=0)))
 
@@ -67,22 +65,20 @@ def fit_classifier():
     y_train_2 = enc.transform(y_train_2.reshape(-1, 1)).toarray()
     y_test_2 = enc.transform(y_test_2.reshape(-1, 1)).toarray()
 
+    y_true_2 =  np.argmax(y_test_2, axis=1)
 
     # save orignal y because later we will use binary
     # y_true = np.argmax(y_test, axis=1)
 
     """
     Instatiate Classifier
-
     - create_classifier
     - fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true)
     """ 
 
-    #print(y_train_1.shape, y_train_2.shape)
-
     classifier = create_classifier(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory)
 
-    classifier.fit(x_train_1, y_train_1,y_train_2, x_test_1, y_test_1,y_test_2, y_true)
+    classifier.fit(x_train_1, y_train_1,y_train_2, x_test_1, y_test_1,y_test_2, y_true_1,y_true_2)
 
 
 def create_classifier(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory, verbose=False):
@@ -107,11 +103,10 @@ import os
 
 if os.getenv("COLAB_RELEASE_TAG"):
     print("Google Colab Environment detected")
-    root_dir = "/content/drive/My Drive/master thesis/code/dl-4-tsc"
+    root_dir =  "/content/drive/My Drive/master thesis/code/dl-4-tsc-mtl"
 else: 
     print("Local Environment detected")
-    root_dir = "G:/My Drive/master thesis/code/dl-4-tsc"
-
+    root_dir = "G:/My Drive/master thesis/code/dl-4-tsc-mtl"
 
 
 

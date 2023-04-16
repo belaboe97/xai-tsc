@@ -5,6 +5,7 @@ import tensorflow.keras as keras
 import tensorflow as tf
 import numpy as np
 import time 
+import os
 
 from utils.utils import save_logs
 from utils.utils import calculate_metrics
@@ -57,7 +58,7 @@ class Classifier_FCN_MT:
 
 		model = keras.models.Model(inputs=input_layer, outputs=[output_layer_1, output_layer_2])
 
-		gamma = 0.5
+		gamma = 1
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
@@ -77,14 +78,16 @@ class Classifier_FCN_MT:
 
 		return model 
 
-	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true):
+	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
 		"""
 				
 		if not tf.test.is_gpu_available:
 			print('error')
 			exit()
 		"""
-		# x_val and y_val are only used to monitor the test loss and NOT for training  
+
+		#x_val and y_val are only used to monitor the test loss and NOT for training  
+		
 		batch_size = 16
 		nb_epochs = 2000
 
@@ -106,18 +109,29 @@ class Classifier_FCN_MT:
 		duration = time.time() - start_time
 
 		self.model.save(self.output_directory+'last_model.hdf5')
-
-		"""
-		model = keras.models.load_model(self.output_directory+'best_model.hdf5')
-
-		y_pred = model.predict(x_val)
+		
+		if os.getenv("COLAB_RELEASE_TAG"):
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5')
+		else:
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
 
 		# convert the predicted from binary to integer 
-		y_pred = np.argmax(y_pred , axis=1)
+		# Multitask output 
+		y_pred = model.predict(x_val)
 
-		save_logs(self.output_directory, hist, y_pred, y_true, duration)
+		#Predictions for task1 and task2
+		y_pred_1 = np.argmax(y_pred[0] , axis=1)
+		y_pred_2 = np.argmax(y_pred[1] , axis=1)
 
 		"""
+		save_logs: 
+		Calculate metrics and saves as csv. 
+		Input format: 
+		save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None)
+		"""
+
+		#print(y_pred_1.shape, y_pred_1, y_pred_2)
+		save_logs(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
 
 		keras.backend.clear_session()
 

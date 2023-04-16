@@ -2,11 +2,6 @@ from builtins import print
 import numpy as np
 import pandas as pd
 import matplotlib
-from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
-from keras.utils import CustomObjectScope
-#from keras.utils.generic_utils import CustomObjectScope
-
-import tensorflow_addons as tfa
 
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -16,7 +11,7 @@ matplotlib.rcParams['font.sans-serif'] = 'Arial'
 import os
 import operator
 
-import utils
+import GeneratingExplanations
 
 from utils.constants import UNIVARIATE_DATASET_NAMES as DATASET_NAMES
 from utils.constants import UNIVARIATE_DATASET_NAMES_2018 as DATASET_NAMES_2018
@@ -67,7 +62,7 @@ def read_dataset(root_dir, archive_name, dataset_name):
     cur_root_dir = root_dir.replace('-temp', '')
 
     if archive_name == 'mts_archive':
-        file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name 
+        file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name + '/'
         x_train = np.load(file_name + 'x_train.npy')
         y_train = np.load(file_name + 'y_train.npy')
         x_test = np.load(file_name + 'x_test.npy')
@@ -77,7 +72,7 @@ def read_dataset(root_dir, archive_name, dataset_name):
                                        y_test.copy())
 
     elif archive_name == 'UCRArchive_2018':
-        root_dir_dataset = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name 
+        root_dir_dataset = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name + '/'
         df_train = pd.read_csv(root_dir_dataset + '/' + dataset_name + '_TRAIN.tsv', sep='\t', header=None)
 
         df_test = pd.read_csv(root_dir_dataset + '/' + dataset_name + '_TEST.tsv', sep='\t', header=None)
@@ -134,7 +129,7 @@ def read_all_datasets(root_dir, archive_name, split_val=False):
                                            y_test.copy())
     elif archive_name == 'UCRArchive_2018':
         for dataset_name in DATASET_NAMES_2018:
-            root_dir_dataset = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name 
+            root_dir_dataset = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name + '/'
 
             df_train = pd.read_csv(root_dir_dataset + '/' + dataset_name + '_TRAIN.tsv', sep='\t', header=None)
 
@@ -402,16 +397,11 @@ def save_logs(output_directory, hist, y_pred, y_true, duration, lr=True, y_true_
     return df_metrics
 
 
-    """
-    CONV (1, 87, 256)
-    (22272,)
-    """
-
 def visualize_filter(root_dir):
     import tensorflow.keras as keras
-    classifier = 'fcn'
-    archive_name = 'TSC'
-    dataset_name = 'UWaveGestureLibraryAll_SHP'
+    classifier = 'resnet'
+    archive_name = 'UCRArchive_2018'
+    dataset_name = 'GunPoint'
     datasets_dict = read_dataset(root_dir, archive_name, dataset_name)
 
     x_train = datasets_dict[dataset_name][0]
@@ -420,7 +410,7 @@ def visualize_filter(root_dir):
     x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
 
     model = keras.models.load_model(
-        root_dir + '/results/' + classifier + '/' + archive_name + '/' + dataset_name + '/best_model.hdf5')
+        root_dir + 'results/' + classifier + '/' + archive_name + '/' + dataset_name + '/best_model.hdf5')
 
     # filters
     filters = model.layers[1].get_weights()[0]
@@ -462,7 +452,7 @@ def viz_perf_themes(root_dir, df):
     themes_index = []
     # add the themes
     for dataset_name in df.index:
-        themes_index.append(utils.constants.dataset_types[dataset_name])
+        themes_index.append(GeneratingExplanations.constants.dataset_types[dataset_name])
 
     themes_index = np.array(themes_index)
     themes, themes_counts = np.unique(themes_index, return_counts=True)
@@ -599,18 +589,10 @@ def viz_for_survey_paper(root_dir, filename='results-ucr-mts.csv'):
 def viz_cam(root_dir):
     import tensorflow.keras as keras
     import sklearn
-    
-    classifier = 'fcn'
-    archive_name = 'TSC'
-    dataset_name = 'UWaveGestureLibraryAll'
-
-    print(classifier)
-
-    """
     classifier = 'resnet'
     archive_name = 'UCRArchive_2018'
     dataset_name = 'GunPoint'
-    """
+
     if dataset_name == 'Gun_Point':
         save_name = 'GunPoint'
     else:
@@ -629,23 +611,15 @@ def viz_cam(root_dir):
 
     x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
 
-
-
-    """
-    """
-    with CustomObjectScope({'InstanceNormalization':tfa.layers.InstanceNormalization()}):
-        model = keras.models.load_model(
-        root_dir + '/results/' + classifier + '/' + archive_name + '/' + dataset_name + '/best_model.hdf5')
-        #, custom_objects={'InstanceNormalization':keras_contrib.layers.InstanceNormalization})
+    model = keras.models.load_model(
+        root_dir + 'results/' + classifier + '/' + archive_name + '/' + dataset_name + '/best_model.hdf5')
 
     # filters
     w_k_c = model.layers[-1].get_weights()[0]  # weights for each filter k for each class c
 
     # the same input
     new_input_layer = model.inputs
-
     # output is both the original as well as the before last layer
-
     new_output_layer = [model.layers[-3].output, model.layers[-1].output]
 
     new_feed_forward = keras.backend.function(new_input_layer, new_output_layer)
@@ -663,11 +637,7 @@ def viz_cam(root_dir):
             orig_label = np.argmax(enc.transform([[c]]))
             if pred_label == orig_label:
                 cas = np.zeros(dtype=np.float, shape=(conv_out.shape[1]))
-
-                #print("CONV",conv_out.shape)
-                #print(w_k_c[:, orig_label].shape)
                 for k, w in enumerate(w_k_c[:, orig_label]):
-                    #print(w,k)
                     cas += w * conv_out[0, :, k]
 
                 minimum = np.min(cas)
@@ -695,6 +665,5 @@ def viz_cam(root_dir):
 
         cbar = plt.colorbar()
         # cbar.ax.set_yticklabels([100,75,50,25,0])
-        #/temp/' + classifier + '-cam-' + save_name + '-class-' + str(int(c))
-        plt.savefig(root_dir + '/' + classifier + '-cam-' + save_name + '-class-' + str(int(c)) + '.png',
+        plt.savefig(root_dir + '/temp/' + classifier + '-cam-' + save_name + '-class-' + str(int(c)) + '.png',
                     bbox_inches='tight', dpi=1080)

@@ -11,8 +11,6 @@ matplotlib.rcParams['font.sans-serif'] = 'Arial'
 import os
 import operator
 
-import utils
-
 from utils.constants import UNIVARIATE_DATASET_NAMES as DATASET_NAMES
 from utils.constants import UNIVARIATE_DATASET_NAMES_2018 as DATASET_NAMES_2018
 from utils.constants import ARCHIVE_NAMES  as ARCHIVE_NAMES
@@ -339,52 +337,56 @@ def plot_epochs_metric(hist, file_name, metric='loss'):
     plt.close()
 
 
-def save_logs_t_leNet(output_directory, hist, y_pred, y_true, duration):
+
+def save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None):
+    
+    
+
     hist_df = pd.DataFrame(hist.history)
     hist_df.to_csv(output_directory + 'history.csv', index=False)
 
-    df_metrics = calculate_metrics(y_true, y_pred, duration)
-    df_metrics.to_csv(output_directory + 'df_metrics.csv', index=False)
+
+    """
+    Task 1:
+    """
+
+    df_metrics_1 = calculate_metrics(y_true_1, y_pred_1, duration, y_true_val, y_pred_val)
+    df_metrics_1.to_csv(output_directory + 'task1_df_metrics.csv', index=False)
+
+    """
+    Task 2: 
+    """
+
+    df_metrics_2 = calculate_metrics(y_true_2, y_pred_2, duration, y_true_val, y_pred_val)
+    df_metrics_2.to_csv(output_directory + 'task2_df_metrics.csv', index=False)
+
 
     index_best_model = hist_df['loss'].idxmin()
     row_best_model = hist_df.loc[index_best_model]
 
-    df_best_model = pd.DataFrame(data=np.zeros((1, 6), dtype=np.float), index=[0],
-                                 columns=['best_model_train_loss', 'best_model_val_loss', 'best_model_train_acc',
-                                          'best_model_val_acc', 'best_model_learning_rate', 'best_model_nb_epoch'])
 
+    df_best_model = pd.DataFrame(data=np.zeros((1, 7), dtype=np.float64), index=[0],
+                                columns=['best_model_train_loss', 'best_model_val_loss', 
+                                'best_model_train_acc_1','best_model_train_acc_2',
+                                'best_model_val_acc_1', 'best_model_val_acc_2',
+                                'best_model_learning_rate', 'best_model_nb_epoch'])
+    
+    #val_task_1_output_accuracy,val_task_2_output_accuracy
+    
+    # Loss
     df_best_model['best_model_train_loss'] = row_best_model['loss']
     df_best_model['best_model_val_loss'] = row_best_model['val_loss']
-    df_best_model['best_model_train_acc'] = row_best_model['acc']
-    df_best_model['best_model_val_acc'] = row_best_model['val_acc']
-    df_best_model['best_model_nb_epoch'] = index_best_model
+    
+    # Accuracy
+    df_best_model['best_model_train_acc_1'] = row_best_model['task_1_output_accuracy']
+    df_best_model['best_model_train_acc_2'] = row_best_model['task_2_output_accuracy']
 
-    df_best_model.to_csv(output_directory + 'df_best_model.csv', index=False)
+    df_best_model['best_model_val_acc_1'] = row_best_model['val_task_1_output_accuracy']
+    df_best_model['best_model_val_acc_2'] = row_best_model['val_task_2_output_accuracy']
 
-    # plot losses
-    plot_epochs_metric(hist, output_directory + 'epochs_loss.png')
-
-
-def save_logs(output_directory, hist, y_pred, y_true, duration, lr=True, y_true_val=None, y_pred_val=None):
-    hist_df = pd.DataFrame(hist.history)
-    hist_df.to_csv(output_directory + 'history.csv', index=False)
-
-    df_metrics = calculate_metrics(y_true, y_pred, duration, y_true_val, y_pred_val)
-    df_metrics.to_csv(output_directory + 'df_metrics.csv', index=False)
-
-    index_best_model = hist_df['loss'].idxmin()
-    row_best_model = hist_df.loc[index_best_model]
-
-    df_best_model = pd.DataFrame(data=np.zeros((1, 6), dtype=np.float), index=[0],
-                                 columns=['best_model_train_loss', 'best_model_val_loss', 'best_model_train_acc',
-                                          'best_model_val_acc', 'best_model_learning_rate', 'best_model_nb_epoch'])
-
-    df_best_model['best_model_train_loss'] = row_best_model['loss']
-    df_best_model['best_model_val_loss'] = row_best_model['val_loss']
-    df_best_model['best_model_train_acc'] = row_best_model['accuracy']
-    df_best_model['best_model_val_acc'] = row_best_model['val_accuracy']
     if lr == True:
         df_best_model['best_model_learning_rate'] = row_best_model['lr']
+
     df_best_model['best_model_nb_epoch'] = index_best_model
 
     df_best_model.to_csv(output_directory + 'df_best_model.csv', index=False)
@@ -394,7 +396,7 @@ def save_logs(output_directory, hist, y_pred, y_true, duration, lr=True, y_true_
     # plot losses
     plot_epochs_metric(hist, output_directory + 'epochs_loss.png')
 
-    return df_metrics
+    return df_metrics_1, df_metrics_2
 
 
 def visualize_filter(root_dir):
@@ -452,7 +454,7 @@ def viz_perf_themes(root_dir, df):
     themes_index = []
     # add the themes
     for dataset_name in df.index:
-        themes_index.append(utils.constants.dataset_types[dataset_name])
+        themes_index.append(GeneratingExplanations.constants.dataset_types[dataset_name])
 
     themes_index = np.array(themes_index)
     themes, themes_counts = np.unique(themes_index, return_counts=True)

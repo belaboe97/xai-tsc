@@ -9,7 +9,7 @@ import os
 import numpy as np
 import sys
 import sklearn
-import utils
+import GeneratingExplanations
 from utils.constants import CLASSIFIERS
 from utils.constants import ARCHIVE_NAMES
 from utils.constants import ITERATIONS
@@ -100,7 +100,7 @@ if sys.argv[1] == 'run_all':
 
                 tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + trr + '/'
 
-                for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
+                for dataset_name in GeneratingExplanations.constants.dataset_names_for_archive[archive_name]:
                     print('\t\t\tdataset_name: ', dataset_name)
 
                     output_directory = tmp_output_directory + dataset_name + '/'
