@@ -365,7 +365,7 @@ def save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, du
     row_best_model = hist_df.loc[index_best_model]
 
 
-    df_best_model = pd.DataFrame(data=np.zeros((1, 7), dtype=np.float64), index=[0],
+    df_best_model = pd.DataFrame(data=np.zeros((1, 8), dtype=np.float64), index=[0],
                                 columns=['best_model_train_loss', 'best_model_val_loss', 
                                 'best_model_train_acc_1','best_model_train_acc_2',
                                 'best_model_val_acc_1', 'best_model_val_acc_2',

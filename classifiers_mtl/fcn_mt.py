@@ -58,7 +58,7 @@ class Classifier_FCN_MT:
 
 		model = keras.models.Model(inputs=input_layer, outputs=[output_layer_1, output_layer_2])
 
-		gamma = 1
+		gamma = 0.5
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
@@ -87,7 +87,7 @@ class Classifier_FCN_MT:
 		"""
 
 		#x_val and y_val are only used to monitor the test loss and NOT for training  
-		
+
 		batch_size = 16
 		nb_epochs = 2000
 
