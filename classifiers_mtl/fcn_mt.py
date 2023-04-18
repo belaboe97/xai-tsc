@@ -12,9 +12,11 @@ from utils.utils import calculate_metrics
 
 class Classifier_FCN_MT:
 
-	def __init__(self, output_directory, input_shape, nb_classes_1, nb_classes_2, gamma, verbose=False, build=True):
+	def __init__(self, output_directory, input_shape, nb_classes_1, nb_classes_2, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
 		self.gamma = gamma
+		self.epochs = epochs
+		self.batch_size = batch_size
 		if build == True:
 			self.model = self.build_model(input_shape, nb_classes_1, nb_classes_2)
 			if(verbose==True):
@@ -88,8 +90,7 @@ class Classifier_FCN_MT:
 
 		#x_val and y_val are only used to monitor the test loss and NOT for training  
 
-		batch_size = 16
-		nb_epochs = 200
+		batch_size = self.batch_size
 
 		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
@@ -99,7 +100,7 @@ class Classifier_FCN_MT:
 		{'input_1': x_train},
         {'task_1_output': y_train_1, 'task_2_output': y_train_2},
 		batch_size=mini_batch_size, 
-		epochs=nb_epochs,
+		epochs=self.epochs,
 		verbose=self.verbose, 
 		validation_data=(
 			x_val,

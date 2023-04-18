@@ -11,7 +11,9 @@ from utils.utils import calculate_metrics
 
 class Classifier_FCN:
 
-	def __init__(self, output_directory, input_shape, nb_classes, verbose=False,build=True):
+	def __init__(self, output_directory, input_shape, nb_classes, epochs, batch_size, verbose=False,build=True):
+		self.epochs = epochs
+		self.batch_size = batch_size
 		self.output_directory = output_directory
 		if build == True:
 			self.model = self.build_model(input_shape, nb_classes)
@@ -62,15 +64,13 @@ class Classifier_FCN:
 			print('error')
 			exit()
 		# x_val and y_val are only used to monitor the test loss and NOT for training  
-		batch_size = 16
-
-		nb_epochs = 100
+		batch_size = self.batch_size
 
 		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
 		start_time = time.time() 
 
-		hist = self.model.fit(x_train, y_train, batch_size=mini_batch_size, epochs=nb_epochs,
+		hist = self.model.fit(x_train, y_train, batch_size=mini_batch_size, epochs=self.epochs,
 			verbose=self.verbose, validation_data=(x_val,y_val), callbacks=self.callbacks)
 		
 		duration = time.time() - start_time

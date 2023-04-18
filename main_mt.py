@@ -11,6 +11,7 @@ from utils.constants import ITERATIONS
 import tensorflow as tf
 
 
+
 def fit_classifier():
     x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
 
@@ -97,7 +98,7 @@ def fit_classifier_mt():
 def create_classifier(classifier_name, input_shape, nb_classes, output_directory, verbose=True):
     if classifier_name == 'fcn':
         from classifiers import fcn
-        return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, verbose)
+        return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, EPOCHS, BATCH_SIZE,  verbose)
     if classifier_name == 'resnet':
         from classifiers import resnet
         return resnet.Classifier_RESNET(output_directory, input_shape, nb_classes, verbose)
@@ -106,7 +107,8 @@ def create_classifier(classifier_name, input_shape, nb_classes, output_directory
 def create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory, gamma, verbose=False):
     if classifier_name == 'fcn_mt': 
         from classifiers_mtl import fcn_mt
-        return fcn_mt.Classifier_FCN_MT(output_directory, input_shape, nb_classes_1, nb_classes_2,gamma,verbose)
+        return fcn_mt.Classifier_FCN_MT(output_directory, input_shape, nb_classes_1, nb_classes_2,gamma,EPOCHS, BATCH_SIZE, verbose)
+
 
 
 ############################################### main
@@ -126,7 +128,7 @@ else:
 #Set random seed 
 #https://stackoverflow.com/questions/36288235/how-to-get-stable-results-with-tensorflow-setting-random-seed
 SEED = 0
-EPOCHS = 2000
+EPOCHS = 100
 BATCH_SIZE = 16
 
 print(f'In fixed SEED mode: {SEED}')
