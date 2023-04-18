@@ -6,8 +6,8 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-matplotlib.rcParams['font.family'] = 'sans-serif'
-matplotlib.rcParams['font.sans-serif'] = 'Arial'
+#matplotlib.rcParams['font.family'] = 'sans-serif'
+#matplotlib.rcParams['font.sans-serif'] = 'Arial'
 import os
 import operator
 
@@ -27,9 +27,6 @@ from scipy.interpolate import interp1d
 from scipy.io import loadmat
 import tensorflow as tf
 #import tensorflow_addons as tfa
-
-
-
 
 
 def readucr(filename):
@@ -52,7 +49,7 @@ def create_directory(directory_path):
 
 
 def create_path(root_dir, classifier_name, archive_name):
-    output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + '/'
+    output_directory = root_dir + '/results/'  + archive_name + '/' + classifier_name.split('_')[0] + '/' + classifier_name + '/' 
     if os.path.exists(output_directory):
         return None
     else:
@@ -60,12 +57,12 @@ def create_path(root_dir, classifier_name, archive_name):
         return output_directory
 
 
-def read_dataset(root_dir, archive_name, dataset_name):
+def read_dataset(root_dir, archive_name, dataset_name, appendix):
     datasets_dict = {}
     cur_root_dir = root_dir.replace('-temp', '')
-    file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name + '/' + dataset_name
-    x_train, y_train = readucr(file_name + '_TRAIN')
-    x_test, y_test = readucr(file_name + '_TEST')
+    file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name + '/' + appendix
+    x_train, y_train = readucr(file_name + '/' + dataset_name + '_TRAIN')
+    x_test, y_test = readucr(file_name + '/' + dataset_name + '_TEST')
     datasets_dict[dataset_name] = (x_train.copy(), y_train.copy(), x_test.copy(),y_test.copy())
     return datasets_dict
 
@@ -137,7 +134,37 @@ def plot_epochs_metric(hist, file_name, metric='loss'):
 
 
 
-def save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None):
+def save_logs_stl(output_directory, hist, y_pred, y_true, duration, lr=True, y_true_val=None, y_pred_val=None):
+    hist_df = pd.DataFrame(hist.history)
+    hist_df.to_csv(output_directory + 'history.csv', index=False)
+
+    df_metrics = calculate_metrics(y_true, y_pred, duration, y_true_val, y_pred_val)
+    df_metrics.to_csv(output_directory + 'df_metrics.csv', index=False)
+
+    index_best_model = hist_df['loss'].idxmin()
+    row_best_model = hist_df.loc[index_best_model]
+
+    df_best_model = pd.DataFrame(data=np.zeros((1, 6), dtype=np.float), index=[0],
+                                 columns=['best_model_train_loss', 'best_model_val_loss', 'best_model_train_acc',
+                                          'best_model_val_acc', 'best_model_learning_rate', 'best_model_nb_epoch'])
+
+    df_best_model['best_model_train_loss'] = row_best_model['loss']
+    df_best_model['best_model_val_loss'] = row_best_model['val_loss']
+    df_best_model['best_model_train_acc'] = row_best_model['accuracy']
+    df_best_model['best_model_val_acc'] = row_best_model['val_accuracy']
+    if lr == True:
+        df_best_model['best_model_learning_rate'] = row_best_model['lr']
+    df_best_model['best_model_nb_epoch'] = index_best_model
+
+    df_best_model.to_csv(output_directory + 'df_best_model.csv', index=False)
+
+    plot_epochs_metric(hist, output_directory + 'epochs_loss.png')
+
+    return df_metrics
+
+
+
+def save_logs_mtl(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None):
     
     
 
@@ -198,7 +225,7 @@ def save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, du
 
 
 
-def calculate_attributions(root_dir, archive_name, classifier, prefix, dataset_name, task=1):
+def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, appendix, mode, itr, task=1):
     
     import tensorflow as tf
     import tensorflow_addons as tfa
@@ -212,32 +239,42 @@ def calculate_attributions(root_dir, archive_name, classifier, prefix, dataset_n
         from keras.utils.generic_utils import CustomObjectScope
 
     max_length = 2000
-
-    datasets_dict = read_dataset(root_dir, archive_name, dataset_name)
-
-    x_train = datasets_dict[dataset_name][0]
-    y_train = datasets_dict[dataset_name][1]
-    x_test = datasets_dict[dataset_name][2]
-    y_test = datasets_dict[dataset_name][3]
     
+
+    datasets_dict = read_dataset(root_dir, archive_name, dataset_name, appendix)
+    x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
+
     # transform to binary labels
     enc = sklearn.preprocessing.OneHotEncoder()
     enc.fit(np.concatenate((y_train, y_test), axis=0).reshape(-1, 1))
     y_train_binary = enc.transform(y_train.reshape(-1, 1)).toarray()
-
+    
+    orgx_train = x_train
+    orgx_test = x_test
+    
     x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
+    x_test  = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
 
-    prefix = prefix + '/'
 
     with CustomObjectScope({'InstanceNormalization':tfa.layers.InstanceNormalization()}):
-        model = keras.models.load_model(root_dir + '/results/' + classifier + '/'  + prefix  + dataset_name + '/best_model.hdf5', compile=False)
+        model = keras.models.load_model( f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                         + f'{classifier.split("_")[0]}/{classifier + itr}_{mode}/{appendix}/' \
+                                         + f'/best_model.hdf5', compile=False )
+    
+
 
     # filters
     # Output is both the original as well as the before last layer
     # layers[-3] : KerasTensor(type_spec=TensorSpec(shape=(None, 150, 128), dtype=tf.float32, name=None), name='activation_8/Relu:0', description="created by layer 'activation_8'") 
     # layers[-1] : KerasTensor(type_spec=TensorSpec(shape=(None, 2), dtype=tf.float32, name=None), name='dense/Softmax:0', description="created by layer 'dense'")
-
-    relu, softm = (-4,-2) if task == 1 else (-4,-1)
+    if mode == 'stl': 
+        relu, softm = (-3,-1)
+    if mode == 'mtl': 
+        if task == 1: 
+            relu, softm = (-4,-2)
+        elif task == 2:
+            relu, softm = (-4,-1)
+        
     w_k_c = model.layers[softm].get_weights()[0]  # weights for each filter k for each class c
 
     # the same input
@@ -246,20 +283,16 @@ def calculate_attributions(root_dir, archive_name, classifier, prefix, dataset_n
     new_output_layer = [model.layers[relu].output, model.layers[softm].output]
 
     new_feed_forward = keras.backend.function(new_input_layer, new_output_layer)
-
+    
+    print(x_train.shape,x_test.shape)
     
     output = []
 
-    for x_vals,y_vals in [[x_train,y_train],[x_test,y_test]]:
-
-
+    for orgx_vals,x_vals,y_vals in [[orgx_train,x_train,y_train],[orgx_test,x_test,y_test]]:
         attr = []
-        
-        #print(classes)
         classes = np.unique(y_vals)
-
         for c in classes:
-            ts_class = np.where(y_train == c)
+            ts_class = np.where(y_vals == c)
             #get time series data 
             c_x_train = x_vals[ts_class]
             for idx,ts in enumerate(c_x_train):
@@ -282,7 +315,6 @@ def calculate_attributions(root_dir, archive_name, classifier, prefix, dataset_n
                     y = f(x)
                     f = interp1d(range(ts.shape[1]), cas)
                     cas = f(x).astype(int)
-     
-                    attr.append([ts_nr,x,y,cas,pred_label,orig_label])
+                    attr.append([ts_nr,x,y,cas,pred_label,orig_label,orgx_vals[ts_nr]])
         output.append(sorted(attr, key=lambda x: x[0]))
-
+    return output

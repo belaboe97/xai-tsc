@@ -7,13 +7,14 @@ import numpy as np
 import time 
 import os
 
-from utils.utils import save_logs
+from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
 class Classifier_FCN_MT:
 
-	def __init__(self, output_directory, input_shape, nb_classes_1, nb_classes_2, verbose=False, build=True):
+	def __init__(self, output_directory, input_shape, nb_classes_1, nb_classes_2, gamma, verbose=False, build=True):
 		self.output_directory = output_directory
+		self.gamma = gamma
 		if build == True:
 			self.model = self.build_model(input_shape, nb_classes_1, nb_classes_2)
 			if(verbose==True):
@@ -58,12 +59,11 @@ class Classifier_FCN_MT:
 
 		model = keras.models.Model(inputs=input_layer, outputs=[output_layer_1, output_layer_2])
 
-		gamma = 0.5
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
 			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': 'binary_crossentropy'},
-			loss_weights={'task_1_output': gamma, 'task_2_output': 1 - gamma},
+			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 - self.gamma},
 			metrics=['accuracy'])
 
 		reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50, 
@@ -89,7 +89,7 @@ class Classifier_FCN_MT:
 		#x_val and y_val are only used to monitor the test loss and NOT for training  
 
 		batch_size = 16
-		nb_epochs = 2000
+		nb_epochs = 200
 
 		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
@@ -131,7 +131,7 @@ class Classifier_FCN_MT:
 		"""
 
 		#print(y_pred_1.shape, y_pred_1, y_pred_2)
-		save_logs(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
+		save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
 
 		keras.backend.clear_session()
 

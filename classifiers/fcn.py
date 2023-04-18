@@ -6,7 +6,7 @@ import tensorflow as tf
 import numpy as np
 import time 
 
-from utils.utils import save_logs
+from utils.utils import save_logs_stl
 from utils.utils import calculate_metrics
 
 class Classifier_FCN:
@@ -63,7 +63,8 @@ class Classifier_FCN:
 			exit()
 		# x_val and y_val are only used to monitor the test loss and NOT for training  
 		batch_size = 16
-		nb_epochs = 2000
+
+		nb_epochs = 100
 
 		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
@@ -83,7 +84,7 @@ class Classifier_FCN:
 		# convert the predicted from binary to integer 
 		y_pred = np.argmax(y_pred , axis=1)
 
-		save_logs(self.output_directory, hist, y_pred, y_true, duration)
+		save_logs_stl(self.output_directory, hist, y_pred, y_true, duration)
 
 		keras.backend.clear_session()
 

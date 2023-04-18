@@ -1,10 +1,6 @@
 from utils.utils import generate_results_csv
 from utils.utils import create_directory
 from utils.utils import read_dataset
-from utils.utils import transform_mts_to_ucr_format
-from utils.utils import visualize_filter
-from utils.utils import viz_for_survey_paper
-from utils.utils import viz_cam
 import os
 import numpy as np
 import sys
@@ -12,15 +8,11 @@ import sklearn
 from utils.constants import CLASSIFIERS
 from utils.constants import ARCHIVE_NAMES
 from utils.constants import ITERATIONS
-from utils.utils import read_all_datasets
 import tensorflow as tf
 
 
 def fit_classifier():
-    x_train = datasets_dict[dataset_name][0]
-    y_train = datasets_dict[dataset_name][1]
-    x_test = datasets_dict[dataset_name][2]
-    y_test = datasets_dict[dataset_name][3]
+    x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
 
     nb_classes = len(np.unique(np.concatenate((y_train, y_test), axis=0)))
 
@@ -46,15 +38,12 @@ def fit_classifier():
 
 def fit_classifier_mt():
 
+
     """ 
     For Task 1: Classification
     """
 
-    x_train_1 = datasets_dict_1[dataset_name][0]
-    y_train_1 = datasets_dict_1[dataset_name][1]
-    x_test_1 = datasets_dict_1[dataset_name][2]
-    y_test_1 = datasets_dict_1[dataset_name][3]
-
+    x_train_1, y_train_1, x_test_1, y_test_1 = datasets_dict_1[dataset_name]
     nb_classes_1 = len(np.unique(np.concatenate((y_train_1, y_test_1), axis=0)))
 
     # transform the labels from integers to one hot vectors
@@ -77,11 +66,8 @@ def fit_classifier_mt():
     For Task 2: Explanation 
     Extract labels: 
     """
-
-    x_train_2 = datasets_dict_2[dataset_name + "_Exp"][0]
-    y_train_2 = datasets_dict_2[dataset_name + "_Exp"][1]
-    x_test_2 = datasets_dict_2[dataset_name  + "_Exp"][2]
-    y_test_2 = datasets_dict_2[dataset_name  + "_Exp"][3]
+    
+    _ , y_train_2, _ , y_test_2 = datasets_dict_2[dataset_name] 
 
 
     nb_classes_2 = len(np.unique(np.concatenate((y_train_2, y_test_2), axis=0)))
@@ -103,7 +89,7 @@ def fit_classifier_mt():
     - fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true)
     """ 
 
-    classifier = create_classifier(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory)
+    classifier = create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory, gamma)
 
     classifier.fit(x_train_1, y_train_1,y_train_2, x_test_1, y_test_1,y_test_2, y_true_1,y_true_2)
 
@@ -117,10 +103,10 @@ def create_classifier(classifier_name, input_shape, nb_classes, output_directory
         return resnet.Classifier_RESNET(output_directory, input_shape, nb_classes, verbose)
 
 
-def create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory, verbose=False):
+def create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory, gamma, verbose=False):
     if classifier_name == 'fcn_mt': 
         from classifiers_mtl import fcn_mt
-        return fcn_mt.Classifier_FCN_MT(output_directory, input_shape, nb_classes_1, nb_classes_2, verbose)
+        return fcn_mt.Classifier_FCN_MT(output_directory, input_shape, nb_classes_1, nb_classes_2,gamma,verbose)
 
 
 ############################################### main
@@ -140,6 +126,12 @@ else:
 #Set random seed 
 #https://stackoverflow.com/questions/36288235/how-to-get-stable-results-with-tensorflow-setting-random-seed
 SEED = 0
+EPOCHS = 2000
+BATCH_SIZE = 16
+
+print(f'In fixed SEED mode: {SEED}')
+print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
+
 def set_seeds(seed=SEED):
     os.environ['PYTHONHASHSEED'] = str(seed)
     #random.seed(seed)
@@ -162,14 +154,15 @@ def set_global_determinism(seed=SEED):
 archive_name = sys.argv[1]
 dataset_name = sys.argv[2]
 classifier_name = sys.argv[3]
-itr = sys.argv[4] if sys.argv[4] is not '_itr_0' else ''
+itr = sys.argv[4] if sys.argv[4] != '_itr_0' else ''
 mtl = sys.argv[5]
-gamma = 0.5 if sys.argv[6] == None else sys.argv[6]
+appendix = sys.argv[6] 
+gamma = 0.5 if sys.argv[7] == None else sys.argv[7]
+gamma = np.float64(gamma)
+#output_directory = root_dir + '/results/'  + archive_name + '/' +  dataset_name + classifier_name.split('_')[0] + '/' + classifier_name + '/' 
 
-
-output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + itr + '/' + \
-                    dataset_name + '/'
-
+output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name.split("_")[0]}/{classifier_name + itr}_{mtl}/{appendix}/' 
+print(output_directory)
 test_dir_df_metrics = output_directory + 'df_metrics.csv'
 
 print('Method: ', archive_name, dataset_name, classifier_name, itr)
@@ -182,13 +175,13 @@ else:
     """
     Read datasets for classification and 
     """
-    
+
     if mtl == 'mtl': 
-        datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name)
-        datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name + "_Exp")
+        datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name, 'original')
+        datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name,  appendix )
         fit_classifier_mt()
     else: 
-        datasets_dict = read_dataset(root_dir, archive_name, dataset_name)
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original')
         fit_classifier()
 
     print('DONE')
