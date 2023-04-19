@@ -1,4 +1,4 @@
-from utils.utils import generate_results_csv
+from utils.utils import generate_results_csv, save_attributions
 from utils.utils import create_directory
 from utils.utils import read_dataset
 import os
@@ -8,6 +8,9 @@ import sklearn
 from utils.constants import CLASSIFIERS
 from utils.constants import ARCHIVE_NAMES
 from utils.constants import ITERATIONS
+from utils.utils import calculate_attributions
+from utils.explanations import create_explanations
+from utils.explanations import save_explanations
 import tensorflow as tf
 
 
@@ -120,16 +123,21 @@ import os
 if os.getenv("COLAB_RELEASE_TAG"):
     print("Google Colab Environment detected")
     root_dir =  "/content/drive/My Drive/master thesis/code/dl-4-tsc-mtl"
+    EPOCHS = 400
+    BATCH_SIZE = 16
+    print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 else: 
     print("Local Environment detected")
     root_dir = "G:/My Drive/master thesis/code/dl-4-tsc-mtl"
-
+    EPOCHS = 1
+    BATCH_SIZE = 16
+    print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 
 #Set random seed 
 #https://stackoverflow.com/questions/36288235/how-to-get-stable-results-with-tensorflow-setting-random-seed
 SEED = 0
-EPOCHS = 100
-BATCH_SIZE = 16
+SLICES = 5
+DATASET_NAMES = ['GunPoint','Coffee'] # #'wafer'
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -152,39 +160,121 @@ def set_global_determinism(seed=SEED):
     tf.config.threading.set_intra_op_parallelism_threads(1)
 """
 
+
+
 # this is the code used to launch an experiment on a dataset
-archive_name = sys.argv[1]
-dataset_name = sys.argv[2]
-classifier_name = sys.argv[3]
-itr = sys.argv[4] if sys.argv[4] != '_itr_0' else ''
-mtl = sys.argv[5]
-appendix = sys.argv[6] 
-gamma = 0.5 if sys.argv[7] == None else sys.argv[7]
-gamma = np.float64(gamma)
-#output_directory = root_dir + '/results/'  + archive_name + '/' +  dataset_name + classifier_name.split('_')[0] + '/' + classifier_name + '/' 
+mode = sys.argv[1]
 
-output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name.split("_")[0]}/{classifier_name + itr}_{mtl}/{appendix}/' 
-print(output_directory)
-test_dir_df_metrics = output_directory + 'df_metrics.csv'
+if mode == 'sequential':
+    gamma = 0.5
+    archive_name = 'ucr'
+    dataset_name = ''
+    itr = '_itr_0' 
 
-print('Method: ', archive_name, dataset_name, classifier_name, itr)
+else: 
+    archive_name = sys.argv[2]
+    dataset_name = sys.argv[3]
+    classifier_name = sys.argv[4]
+    itr = sys.argv[5] if sys.argv[5] != '_itr_0' else ''
+    data_source = sys.argv[6] 
+    data_dest = sys.argv[7]
+    #print(sys.argv[7])
+    gamma = 0.5 if sys.argv[8] == None else sys.argv[8]
+    gamma = np.float64(gamma)
 
-if os.path.exists(test_dir_df_metrics):
-    print('Already done')
-else:
-    create_directory(output_directory)
 
-    """
-    Read datasets for classification and 
-    """
 
-    if mtl == 'mtl': 
-        datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name, 'original')
-        datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name,  appendix )
-        fit_classifier_mt()
-    else: 
-        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original')
+def output_path():
+    classifier = classifier_name + itr #+ mode
+
+    output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name.split("_")[0]}/{classifier}/{data_source}/' 
+    print(output_directory)
+    test_dir_df_metrics = output_directory + 'df_metrics.csv'
+
+    print('Method: ', archive_name, dataset_name, classifier_name, itr)
+    return output_directory, test_dir_df_metrics
+
+
+if mode == 'sequential': 
+    
+    for dataset in DATASET_NAMES:
+
+        data_source = 'original'
+        data_dest = 'unbalanced_exp'
+        classifier_name = 'fcn'
+        classifier = classifier_name + itr
+        dataset_name = dataset
+
+        output_directory, test_dir_df_metrics = output_path()
+
+        if os.path.exists(test_dir_df_metrics):
+            print('Already done')
+        else:
+            create_directory(output_directory)
+
+        """
+        Building Block 1: Fit Single Task Classifier and Build Explanations
+        """
+        datasets_dict = read_dataset(root_dir, archive_name, dataset, 'original')
         fit_classifier()
+        att = calculate_attributions(root_dir, archive_name, classifier, dataset, data_source, 'stl', task=1)
+        save_attributions(output_directory, att, task = 1)
+        exp = create_explanations(att, SLICES)
+        save_explanations(exp, root_dir, archive_name, data_dest, dataset)
+
+        """
+        Building Block 2: 
+        """
+        classifier_name = 'fcn_mt'
+        classifier = classifier_name + itr
+        data_source = 'unbalanced_exp'
+
+        output_directory, test_dir_df_metrics = output_path()
+
+        if os.path.exists(test_dir_df_metrics):
+            print('Already done')
+        else:
+            create_directory(output_directory)
+
+
+        datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name,  'original')
+        datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name,   data_source)
+        fit_classifier_mt()
+        
+        # For task 1
+        att = calculate_attributions(root_dir, archive_name, classifier, dataset, data_source, 'mtl', task=1)
+        save_attributions(output_directory, att, task = 1)
+
+        # For task 2
+        att = calculate_attributions(root_dir, archive_name, classifier, dataset, data_source, 'mtl', task=2)
+        save_attributions(output_directory, att, task = 2)
+
+        print('DONE')
+
+        # the creation of this directory means
+        create_directory(output_directory + '/DONE')
+
+else: 
+
+    output_directory, test_dir_df_metrics = output_path()
+
+    
+    if os.path.exists(test_dir_df_metrics):
+        print('Already done')
+    else:
+        create_directory(output_directory)
+
+        if mode == 'mtl': 
+            datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name,  'original')
+            datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name,   data_source)
+            fit_classifier_mt()
+
+        elif mode == 'stl': 
+            datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original')
+            fit_classifier()
+            att = calculate_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1)
+            exp = create_explanations(att, SLICES)
+            save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
 
     print('DONE')
 

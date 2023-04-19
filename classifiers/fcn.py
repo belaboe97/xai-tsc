@@ -50,12 +50,14 @@ class Classifier_FCN:
 		reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50, 
 			min_lr=0.0001)
 
+		#early_stop = keras.callbacks.EarlyStopping(patience = 3)
+
 		file_path = self.output_directory+'best_model.hdf5'
 
 		model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss', 
 			save_best_only=True)
 
-		self.callbacks = [reduce_lr,model_checkpoint]
+		self.callbacks = [reduce_lr,model_checkpoint]#,early_stop]
 
 		return model 
 

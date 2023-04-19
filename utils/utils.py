@@ -21,6 +21,8 @@ from utils.constants import MTS_DATASET_NAMES
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
 from sklearn.preprocessing import LabelEncoder
 
 from scipy.interpolate import interp1d
@@ -57,10 +59,14 @@ def create_path(root_dir, classifier_name, archive_name):
         return output_directory
 
 
-def read_dataset(root_dir, archive_name, dataset_name, appendix):
+def read_dataset(root_dir, archive_name, dataset_name,  data_source):
     datasets_dict = {}
     cur_root_dir = root_dir.replace('-temp', '')
-    file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name + '/' + appendix
+    if data_source == 'original': 
+        file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name 
+    else: 
+        file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name  + '/' + data_source + '/'
+
     x_train, y_train = readucr(file_name + '/' + dataset_name + '_TRAIN')
     x_test, y_test = readucr(file_name + '/' + dataset_name + '_TEST')
     datasets_dict[dataset_name] = (x_train.copy(), y_train.copy(), x_test.copy(),y_test.copy())
@@ -70,6 +76,7 @@ def read_dataset(root_dir, archive_name, dataset_name, appendix):
 def calculate_metrics(y_true, y_pred, duration, y_true_val=None, y_pred_val=None):
     res = pd.DataFrame(data=np.zeros((1, 4), dtype=np.float), index=[0],
                        columns=['precision', 'accuracy', 'recall', 'duration'])
+
     res['precision'] = precision_score(y_true, y_pred, average='macro')
     res['accuracy'] = accuracy_score(y_true, y_pred)
 
@@ -80,6 +87,17 @@ def calculate_metrics(y_true, y_pred, duration, y_true_val=None, y_pred_val=None
     res['recall'] = recall_score(y_true, y_pred, average='macro')
     res['duration'] = duration
     return res
+
+def calculate_confusion_matrix(y_true,y_pred):
+    cfm = confusion_matrix(y_true, y_pred)
+    cfm = pd.DataFrame(cfm)
+    return cfm
+
+
+def calculate_classification_report(y_true,y_pred):
+    cr = classification_report(y_true,y_pred,labels=list(set(y_true)),output_dict=True,digits=3)
+    cr_pd = pd.DataFrame(cr)
+    return cr_pd
 
 
 def save_test_duration(file_name, test_duration):
@@ -184,6 +202,8 @@ def save_logs_mtl(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2
     """
 
     df_metrics_2 = calculate_metrics(y_true_2, y_pred_2, duration, y_true_val, y_pred_val)
+    calculate_classification_report(y_true_2, y_pred_2).to_csv(output_directory + "cr_report_task_2")
+    calculate_confusion_matrix(y_true_2, y_pred_2).to_csv(output_directory + "cfm_matrix_task_2")
     df_metrics_2.to_csv(output_directory + 'task2_df_metrics.csv', index=False)
 
 
@@ -225,23 +245,27 @@ def save_logs_mtl(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2
 
 
 
-def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, appendix, mode, itr, task=1):
+def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, data_source, mode, task=1):
     
-    import tensorflow as tf
+    
     import tensorflow_addons as tfa
     import tensorflow.keras as keras
     import sklearn
+    import os
 
 
     if os.getenv("COLAB_RELEASE_TAG"):
-        from tf.keras.utils import CustomObjectScope
+        from tensorflow.keras.utils import CustomObjectScope
     else: 
         from keras.utils.generic_utils import CustomObjectScope
 
     max_length = 2000
     
-
-    datasets_dict = read_dataset(root_dir, archive_name, dataset_name, appendix)
+    if task == 1: 
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,  'original')
+    elif task == 2: 
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,   data_source)
+        
     x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
 
     # transform to binary labels
@@ -256,10 +280,13 @@ def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, ap
     x_test  = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
 
 
-    with CustomObjectScope({'InstanceNormalization':tfa.layers.InstanceNormalization()}):
-        model = keras.models.load_model( f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-                                         + f'{classifier.split("_")[0]}/{classifier + itr}_{mode}/{appendix}/' \
-                                         + f'/best_model.hdf5', compile=False )
+
+    print(f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                        + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
+                                        + f'best_model.hdf5')
+    model = keras.models.load_model( f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                        + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
+                                        + f'best_model.hdf5')
     
 
 
@@ -272,6 +299,7 @@ def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, ap
     if mode == 'mtl': 
         if task == 1: 
             relu, softm = (-4,-2)
+            print("yes")
         elif task == 2:
             relu, softm = (-4,-1)
         
@@ -303,6 +331,7 @@ def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, ap
                 orig_label = np.argmax(enc.transform([[c]]))
                 if True: 
                     cas = np.zeros(dtype=np.float64, shape=(conv_out.shape[1]))
+                    #print(w_k_c.shape,orig_label)
                     for k, w in enumerate(w_k_c[:, orig_label]):
                         cas += w * conv_out[0, :, k] 
                     minimum = np.min(cas)
@@ -318,3 +347,16 @@ def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, ap
                     attr.append([ts_nr,x,y,cas,pred_label,orig_label,orgx_vals[ts_nr]])
         output.append(sorted(attr, key=lambda x: x[0]))
     return output
+
+def save_attributions(output_directory, att, task, save_mode = 1): 
+    task_name = 'task_1' if task == 1 else 'task_2'
+    att_train, att_test = att
+    if save_mode == 1: 
+        np.save(output_directory  + f'calculated_attribution_train_{task_name}.npy', att_train)
+        np.save(output_directory  + f'calculated_attribution_test_{task_name}.npy', att_test)
+    if save_mode == 2:
+        pd.DataFrame(att_train, columns=['ts_nr','x_val','y_val','attributions','pred_y','true_y','orginal_ts'])\
+        .to_csv(output_directory + f'calculated_attribution_train_{task_name}.csv')
+        pd.DataFrame(att_train, columns=['ts_nr','x_val','y_val','attributions','pred_y','true_y','orginal_ts'])\
+        .to_csv(output_directory + f'calculated_attribution_test_{task_name}.csv')
+    print("Saved attributions")
