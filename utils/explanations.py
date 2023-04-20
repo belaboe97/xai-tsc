@@ -25,6 +25,17 @@ def create_explanations(attributions,slices):
         output.append(np.array(explanations))
     return output
 
+def create_pointwise_explanations(attributions):
+    output = []
+    for split in attributions:
+        explanations = []
+        for ts in split: 
+            y_values = ts[0]
+            attributions = ts[2]
+            explanations.append(np.concatenate((y_values,attributions), axis=None))    
+        output.append(np.array(explanations))
+    return output
+
 def save_explanations(data, root_dir, archive_name, appendix, dataset_name):
     train_explanation,test_explanation = data
     print(train_explanation.shape, test_explanation.shape)

@@ -8,8 +8,9 @@ import sklearn
 from utils.constants import CLASSIFIERS
 from utils.constants import ARCHIVE_NAMES
 from utils.constants import ITERATIONS
-from utils.utils import calculate_attributions
-from utils.explanations import create_explanations
+from utils.utils import calculate_attributions, calculate_pointwise_attributions
+from utils.explanations import create_explanations 
+from utils.explanations import create_pointwise_explanations
 from utils.explanations import save_explanations
 import tensorflow as tf
 
@@ -74,15 +75,21 @@ def fit_classifier_mt():
     _ , y_train_2, _ , y_test_2 = datasets_dict_2[dataset_name] 
 
 
+    print("SHAPE 2",y_train_2.shape)
+
     nb_classes_2 = len(np.unique(np.concatenate((y_train_2, y_test_2), axis=0)))
 
     # transform the labels from integers to one hot vectors
+    """
+    
     enc = sklearn.preprocessing.OneHotEncoder(categories='auto')
     enc.fit(np.concatenate((y_train_2, y_test_2), axis=0).reshape(-1, 1))
     y_train_2 = enc.transform(y_train_2.reshape(-1, 1)).toarray()
     y_test_2 = enc.transform(y_test_2.reshape(-1, 1)).toarray()
 
     y_true_2 =  np.argmax(y_test_2, axis=1)
+
+    """
 
     # save orignal y because later we will use binary
     # y_true = np.argmax(y_test, axis=1)
@@ -95,7 +102,7 @@ def fit_classifier_mt():
 
     classifier = create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory, gamma)
 
-    classifier.fit(x_train_1, y_train_1,y_train_2, x_test_1, y_test_1,y_test_2, y_true_1,y_true_2)
+    classifier.fit(x_train_1, y_train_1,y_train_2, x_test_1, y_test_1,y_test_2, y_true_1,y_true_2 = 'dummy')
 
 
 def create_classifier(classifier_name, input_shape, nb_classes, output_directory, verbose=True):
@@ -111,6 +118,9 @@ def create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_
     if classifier_name == 'fcn_mt': 
         from classifiers_mtl import fcn_mt
         return fcn_mt.Classifier_FCN_MT(output_directory, input_shape, nb_classes_1, nb_classes_2,gamma,EPOCHS, BATCH_SIZE, verbose)
+    if classifier_name == 'fcn_mt_ae': 
+        from classifiers_mtl import fcn_mt_ae
+        return fcn_mt_ae.Classifier_FCN_MT_AE(output_directory, input_shape, nb_classes_1, nb_classes_2,gamma,EPOCHS, BATCH_SIZE, verbose)
 
 
 
@@ -183,7 +193,7 @@ else:
     gamma = np.float64(gamma)
 
 
-
+classifier = classifier_name + itr 
 def output_path():
     classifier = classifier_name + itr #+ mode
 
@@ -258,22 +268,26 @@ else:
 
     output_directory, test_dir_df_metrics = output_path()
 
-    
+    """
     if os.path.exists(test_dir_df_metrics):
-        print('Already done')
-    else:
+        print('Already done')"""
+    if True:
         create_directory(output_directory)
-
+        print(mode)
         if mode == 'mtl': 
             datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name,  'original')
             datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name,   data_source)
             fit_classifier_mt()
 
+
+
         elif mode == 'stl': 
             datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original')
             fit_classifier()
-            att = calculate_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1)
-            exp = create_explanations(att, SLICES)
+            #att = calculate_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1)
+            #save_attributions(output_directory, att, task = 1)
+            att = calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1)
+            exp = create_pointwise_explanations(att)
             save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
 
     print('DONE')

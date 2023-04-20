@@ -27,6 +27,7 @@ class Classifier_FCN_MT:
 
 	def build_model(self, input_shape, nb_classes_1,  nb_classes_2):
 
+
 		"""
 		Main branch, shared features. 
 		"""
@@ -37,15 +38,25 @@ class Classifier_FCN_MT:
 		conv1 = keras.layers.BatchNormalization()(conv1)
 		conv1 = keras.layers.Activation(activation='relu')(conv1)
 
+		print(conv1.shape)
+
 		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same')(conv1)
 		conv2 = keras.layers.BatchNormalization()(conv2)
 		conv2 = keras.layers.Activation('relu')(conv2)
+
+		print(conv2.shape)
+
 
 		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
 		conv3 = keras.layers.BatchNormalization()(conv3)
 		conv3 = keras.layers.Activation('relu')(conv3)
 
+		print(conv3.shape)
+
 		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
+
+		print(gap_layer.shape)
+
 
 		"""
 		Specific Output layers: 
@@ -79,7 +90,7 @@ class Classifier_FCN_MT:
 			save_best_only=True)
 		
 
-		self.callbacks = [reduce_lr,model_checkpoint] #, early_stop]
+		self.callbacks = [reduce_lr,model_checkpoint] #g, early_stop]
 
 		return model 
 

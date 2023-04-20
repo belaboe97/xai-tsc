@@ -1,0 +1,2 @@
+loss,task_1_output_loss,task_2_output_loss,task_1_output_accuracy,task_2_output_accuracy,val_loss,val_task_1_output_loss,val_task_2_output_loss,val_task_1_output_accuracy,val_task_2_output_accuracy,lr
+0.6658427715301514,0.7671914100646973,0.5644940137863159,0.5,0.800000011920929,0.7480210661888123,0.6891230940818787,0.8069189190864563,0.5066666603088379,0.0,0.0010000000474974513

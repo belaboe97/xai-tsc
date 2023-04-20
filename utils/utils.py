@@ -25,6 +25,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import LabelEncoder
 
+
 from scipy.interpolate import interp1d
 from scipy.io import loadmat
 import tensorflow as tf
@@ -244,11 +245,64 @@ def save_logs_mtl(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2
     return df_metrics_1, df_metrics_2
 
 
+def calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1):
+    #import tensorflow_addons as tfa
+    import tensorflow.keras as keras
+    import sklearn
+    import os
+
+    max_length = 2000
+    
+    if task == 1: 
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,  'original')
+    elif task == 2: 
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,   data_source)
+        
+    x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
+
+    # transform to binary labels
+    enc = sklearn.preprocessing.OneHotEncoder()
+    enc.fit(np.concatenate((y_train, y_test), axis=0).reshape(-1, 1))
+    y_train_binary = enc.transform(y_train.reshape(-1, 1)).toarray()
+    
+    orgx_train = x_train
+    orgx_test = x_test
+    
+    x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
+    x_test  = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
+
+    model = keras.models.load_model( f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                        + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
+                                        + f'best_model.hdf5',compile=False)
+
+    if mode == 'stl': 
+        relu, softm = (-3,-1)
+        
+    w_k_c = model.layers[softm].get_weights()[0]  # weights for each filter k for each class c
+
+    # the same input
+    new_input_layer = model.inputs
+    new_output_layer = [model.layers[relu].output, model.layers[softm].output]
+    new_feed_forward = keras.backend.function(new_input_layer, new_output_layer)
+    output = []
+
+    for orgx_vals,x_vals,y_vals in [[orgx_train,x_train,y_train],[orgx_test,x_test,y_test]]:
+        attr = list()
+        for idx,ts in enumerate(x_vals):
+            ts = ts.reshape(1, -1, 1)
+            [conv_out, predicted] = new_feed_forward([ts])
+            cas = np.zeros(dtype=np.float64, shape=(conv_out.shape[1]))
+
+            for k, w in enumerate(w_k_c[:,int(y_vals[idx]-1)]):
+                cas += w * conv_out[0, :, k] 
+            attr.append([y_vals,orgx_vals[idx],cas])
+        output.append(attr)
+    return output
 
 def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, data_source, mode, task=1):
     
-    
-    import tensorflow_addons as tfa
+
+    #import tensorflow_addons as tfa
     import tensorflow.keras as keras
     import sklearn
     import os
@@ -347,6 +401,7 @@ def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, da
                     attr.append([ts_nr,x,y,cas,pred_label,orig_label,orgx_vals[ts_nr]])
         output.append(sorted(attr, key=lambda x: x[0]))
     return output
+
 
 def save_attributions(output_directory, att, task, save_mode = 1): 
     task_name = 'task_1' if task == 1 else 'task_2'
