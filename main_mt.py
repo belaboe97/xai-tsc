@@ -15,7 +15,6 @@ from utils.explanations import save_explanations
 import tensorflow as tf
 
 
-
 def fit_classifier():
     x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
 
@@ -43,7 +42,6 @@ def fit_classifier():
 
 def fit_classifier_mt():
 
-
     """ 
     For Task 1: Classification
     """
@@ -60,20 +58,34 @@ def fit_classifier_mt():
     # save orignal y because later we will use binary
     y_true_1 = np.argmax(y_test_1, axis=1)
 
+    """
+        if len(x_train_1.shape) == 2:  # if univariate
+        # add a dimension to make it multivariate with one dimension 
+        x_train_1 = x_train_1.reshape((x_train_1.shape[0], x_train_1.shape[1], 1))
+        x_test_1 = x_test_1.reshape((x_test_1.shape[0], x_test_1.shape[1], 1))
+
+    """
     if len(x_train_1.shape) == 2:  # if univariate
         # add a dimension to make it multivariate with one dimension 
         x_train_1 = x_train_1.reshape((x_train_1.shape[0], x_train_1.shape[1], 1))
         x_test_1 = x_test_1.reshape((x_test_1.shape[0], x_test_1.shape[1], 1))
 
+    
+    #print("XTRAIn",x_train_1.shape)
     input_shape = x_train_1.shape[1:]
+
+    #print(x_train_1[1:])
+
+
 
     """
     For Task 2: Explanation 
     Extract labels: 
     """
+
+
     
     _ , y_train_2, _ , y_test_2 = datasets_dict_2[dataset_name] 
-
 
     print("SHAPE 2",y_train_2.shape)
 
@@ -100,7 +112,8 @@ def fit_classifier_mt():
     - fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true)
     """ 
 
-    classifier = create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory, gamma)
+
+    classifier = create_classifier_mt(classifier_name, input_shape, nb_classes_1, None, output_directory, gamma)
 
     classifier.fit(x_train_1, y_train_1,y_train_2, x_test_1, y_test_1,y_test_2, y_true_1,y_true_2 = 'dummy')
 
@@ -120,7 +133,7 @@ def create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_
         return fcn_mt.Classifier_FCN_MT(output_directory, input_shape, nb_classes_1, nb_classes_2,gamma,EPOCHS, BATCH_SIZE, verbose)
     if classifier_name == 'fcn_mt_ae': 
         from classifiers_mtl import fcn_mt_ae
-        return fcn_mt_ae.Classifier_FCN_MT_AE(output_directory, input_shape, nb_classes_1, nb_classes_2,gamma,EPOCHS, BATCH_SIZE, verbose)
+        return fcn_mt_ae.Classifier_FCN_MT_AE(output_directory, input_shape, nb_classes_1, gamma,EPOCHS, BATCH_SIZE, verbose)
 
 
 
@@ -132,13 +145,13 @@ import os
 
 if os.getenv("COLAB_RELEASE_TAG"):
     print("Google Colab Environment detected")
-    root_dir =  "/content/drive/My Drive/master thesis/code/dl-4-tsc-mtl"
+    root_dir =  "/content/drive/My Drive/master thesis/code/xai-tsc"
     EPOCHS = 400
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 else: 
     print("Local Environment detected")
-    root_dir = "G:/My Drive/master thesis/code/dl-4-tsc-mtl"
+    root_dir = "G:/My Drive/master thesis/code/xai-tsc"
     EPOCHS = 1
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
@@ -191,9 +204,9 @@ else:
     #print(sys.argv[7])
     gamma = 0.5 if sys.argv[8] == None else sys.argv[8]
     gamma = np.float64(gamma)
+    #classifier = classifier_name + itr 
 
 
-classifier = classifier_name + itr 
 def output_path():
     classifier = classifier_name + itr #+ mode
 
@@ -210,7 +223,7 @@ if mode == 'sequential':
     for dataset in DATASET_NAMES:
 
         data_source = 'original'
-        data_dest = 'unbalanced_exp'
+        data_dest = 'pointwise'
         classifier_name = 'fcn'
         classifier = classifier_name + itr
         dataset_name = dataset
@@ -225,19 +238,20 @@ if mode == 'sequential':
         """
         Building Block 1: Fit Single Task Classifier and Build Explanations
         """
-        datasets_dict = read_dataset(root_dir, archive_name, dataset, 'original')
+
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original')
         fit_classifier()
-        att = calculate_attributions(root_dir, archive_name, classifier, dataset, data_source, 'stl', task=1)
-        save_attributions(output_directory, att, task = 1)
-        exp = create_explanations(att, SLICES)
-        save_explanations(exp, root_dir, archive_name, data_dest, dataset)
+        att = calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset_name, data_source, 'stl', task=1)
+        exp = create_pointwise_explanations(att)
+        save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
+
 
         """
-        Building Block 2: 
+        Building Block 2: Fit Multi Task Classifier
         """
-        classifier_name = 'fcn_mt'
+        classifier_name = 'fcn_mt_ae'
         classifier = classifier_name + itr
-        data_source = 'unbalanced_exp'
+        data_source = 'pointwise'
 
         output_directory, test_dir_df_metrics = output_path()
 
@@ -248,18 +262,47 @@ if mode == 'sequential':
 
 
         datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name,  'original')
+
+        def readucr(filename):
+            data = np.loadtxt(filename, delimiter=',')
+            Y = data[:, 150:]
+            X = data[:, :150]
+            return X, Y
+
+    
+        def read_dataset(root_dir, archive_name, dataset_name, data_source):
+            datasets_dict = {}
+            cur_root_dir = root_dir.replace('-temp', '')
+            if data_source == 'original': 
+                file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name 
+            else: 
+                file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name  + '/' + data_source + '/'
+
+            x_train, y_train = readucr(file_name + '/' + dataset_name + '_TRAIN')
+            x_test, y_test = readucr(file_name + '/' + dataset_name + '_TEST')
+            datasets_dict[dataset_name] = (x_train.copy(), y_train.copy(), x_test.copy(),y_test.copy())
+            return datasets_dict
+
+
+
+
         datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name,   data_source)
+        print("SHAPE DICT", datasets_dict_2['GunPoint'][1].shape)
         fit_classifier_mt()
         
+        """
         # For task 1
-        att = calculate_attributions(root_dir, archive_name, classifier, dataset, data_source, 'mtl', task=1)
+        att = calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset, data_source, 'mtl', task=1)
         save_attributions(output_directory, att, task = 1)
 
         # For task 2
-        att = calculate_attributions(root_dir, archive_name, classifier, dataset, data_source, 'mtl', task=2)
+        att = calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset, data_source, 'mtl', task=2)
         save_attributions(output_directory, att, task = 2)
+        
+        """
 
-        print('DONE')
+
+
 
         # the creation of this directory means
         create_directory(output_directory + '/DONE')
@@ -276,16 +319,36 @@ else:
         print(mode)
         if mode == 'mtl': 
             datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name,  'original')
+
+
+            def readucr(filename):
+                data = np.loadtxt(filename, delimiter=',')
+                Y = data[:, 150:]
+                X = data[:, :150]
+                return X, Y
+
+    
+            def read_dataset(root_dir, archive_name, dataset_name, data_source):
+                datasets_dict = {}
+                cur_root_dir = root_dir.replace('-temp', '')
+                if data_source == 'original': 
+                    file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name 
+                else: 
+                    file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name  + '/' + data_source + '/'
+
+                x_train, y_train = readucr(file_name + '/' + dataset_name + '_TRAIN')
+                x_test, y_test = readucr(file_name + '/' + dataset_name + '_TEST')
+                datasets_dict[dataset_name] = (x_train.copy(), y_train.copy(), x_test.copy(),y_test.copy())
+                return datasets_dict
+
+
+
             datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name,   data_source)
             fit_classifier_mt()
-
-
 
         elif mode == 'stl': 
             datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original')
             fit_classifier()
-            #att = calculate_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1)
-            #save_attributions(output_directory, att, task = 1)
             att = calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1)
             exp = create_pointwise_explanations(att)
             save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)

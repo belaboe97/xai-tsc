@@ -30,9 +30,9 @@ def create_pointwise_explanations(attributions):
     for split in attributions:
         explanations = []
         for ts in split: 
-            y_values = ts[0]
+            x_values = ts[1]
             attributions = ts[2]
-            explanations.append(np.concatenate((y_values,attributions), axis=None))    
+            explanations.append(np.concatenate((np.array([x_values]),attributions), axis=None))    
         output.append(np.array(explanations))
     return output
 

@@ -10,100 +10,81 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
+from keras.models import Model
+from keras.layers import Input, Conv1D, BatchNormalization, Activation, AveragePooling1D, UpSampling1D, Conv1DTranspose, GlobalAveragePooling1D, Dense
+
+
 class Classifier_FCN_MT_AE:
 
-	def __init__(self, output_directory, input_shape, nb_classes_1, nb_classes_2, gamma, epochs, batch_size, verbose=False, build=True):
+	def __init__(self, output_directory, input_shape, nb_classes_1, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
 		self.gamma = gamma
 		self.epochs = epochs
 		self.batch_size = batch_size
 		self.latent_inputs = None
 		if build == True:
-			self.model = self.build_model(input_shape, nb_classes_1, nb_classes_2)
+			self.model = self.build_model(input_shape, nb_classes_1)
 			if(verbose==True):
 				self.model.summary()
 			self.verbose = verbose
 			self.model.save_weights(self.output_directory+'model_init.hdf5')
 		return
 
-	def build_model(self, input_shape, nb_classes_1,  nb_classes_2):
 
+	def build_model(self, input_shape, nb_classes_1):
 
-		print(input_shape)
-		"""
-		Main branch, shared features. 
-		"""
-		input_layer = keras.layers.Input(input_shape)
+		print("VERSION",tf.__version__)
 
-		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same')(input_layer)
-		conv1 = keras.layers.BatchNormalization()(conv1)
-		conv1 = keras.layers.Activation(activation='relu')(conv1)
+		# Define input shape
+		input_shape = (150, 1)
 
-		print(conv1.shape)
+		# Define input layer
+		input_layer = Input(shape=input_shape, name='input_1')
 
-		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same')(conv1)
-		conv2 = keras.layers.BatchNormalization()(conv2)
-		conv2 = keras.layers.Activation('relu')(conv2)
+		# Encoder
+		x = Conv1D(filters=128, kernel_size=3, padding='same')(input_layer)
+		print("SHPAPE", x.name,x.shape)
+		x = BatchNormalization()(x)
+		x = Activation('relu')(x)
+		x = Conv1D(filters=256, kernel_size=3, padding='same')(x)
+		x = BatchNormalization()(x)
+		x = Activation('relu')(x)
+		x = Conv1D(filters=128, kernel_size=3, padding='same')(x)
+		x = BatchNormalization()(x)
+		x = Activation('relu')(x)
+		x = AveragePooling1D()(x)
+		print(x.shape)
+		# Decoder
+		x = UpSampling1D()(x)
+		x = Conv1DTranspose(filters=128, kernel_size=3, padding='same')(x)
+		x = BatchNormalization()(x)
+		x = Activation('relu')(x)
+		x = Conv1DTranspose(filters=256, kernel_size=3, padding='same')(x)
+		x = BatchNormalization()(x)
+		x = Activation('relu')(x)
+		x = Conv1DTranspose(filters=1, kernel_size=3, padding='same')(x)
+		x = BatchNormalization()(x)
+		x = Activation('sigmoid')(x)
 
-		print(conv2.shape)
+		# Output layers
+		y = GlobalAveragePooling1D()(x)
+		y1 = Dense(units=2, activation='softmax', name='task_1_output')(y)
+		y2 = Conv1DTranspose(filters=1, kernel_size=3, padding='same', name='task_2_output')(x)
 
-
-		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
-		conv3 = keras.layers.BatchNormalization()(conv3)
-		conv3 = keras.layers.Activation('relu')(conv3)
-
-		print(conv3.shape)
-
-		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
-
-		print(gap_layer.shape)
-
-		"""
-		Decoder 
-		"""
-
-
-		#latent_inputs = keras.layers.Input(gap_layer.shape[-1])
-		dense_layer = keras.layers.Dense(128, activation='relu')(gap_layer)
-		dense_layer = keras.layers.Reshape((1, 128))(dense_layer)
-
-		conv4 = keras.layers.Conv1DTranspose(filters=128, kernel_size=3, padding='same')(dense_layer)
-		conv4 = keras.layers.BatchNormalization()(conv4)
-		conv4 = keras.layers.Activation('relu')(conv4)
-
-		conv5 = keras.layers.Conv1DTranspose(filters=256, kernel_size=5, padding='same')(conv4)
-		conv5 = keras.layers.BatchNormalization()(conv5)
-		conv5 = keras.layers.Activation('relu')(conv5)
-
-		conv6 = keras.layers.Conv1DTranspose(filters=128, kernel_size=8, padding='same')(conv5)
-		conv6 = keras.layers.BatchNormalization()(conv6)
-		conv6 = keras.layers.Activation('relu')(conv6)
-
-
-		#decoder = keras.Model(decoder_input, decoder_output, name="decoder")
-
-		"""
-		Specific Output layers: 
-		"""
-		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
-
-
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='sigmoid', name='task_2_output')(conv6)
-
-
+		# Define the model
+		model = Model(inputs=input_layer, outputs=[y1, y2])
 
 		"""
 		Define model: 
 
 		"""
 
-		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
-
+		print(model.summary())
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
 			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': 'mae'},
-			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 - self.gamma},
+			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy'])
 
 		reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50, 
@@ -113,17 +94,17 @@ class Classifier_FCN_MT_AE:
 
 		file_path = self.output_directory+'best_model.hdf5'
 
-		model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss', 
-			save_best_only=True)
+		#model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss', 
+		#	save_best_only=True)
 		
 
-		self.callbacks = [reduce_lr,model_checkpoint] #g, early_stop]
+		#self.callbacks = [reduce_lr,model_checkpoint] #g, early_stop]
 
 		return model 
 
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
-
-		print("SHAPES", y_train_1.shape, y_train_2.shape)
+			
+		print("SHAPES",x_train.shape, y_train_1.shape, y_train_2.shape)
 		"""
 				
 		if not tf.test.is_gpu_available:
@@ -131,25 +112,21 @@ class Classifier_FCN_MT_AE:
 			exit()
 		"""
 
+
+		print("TYPE", type(x_train[0]))
 		#x_val and y_val are only used to monitor the test loss and NOT for training  
 
 		batch_size = self.batch_size
 
 		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
-		start_time = time.time() 
 
-		hist = self.model.fit(
-		{'input_1': x_train},
-        {'task_1_output': y_train_1, 'task_2_output': y_train_2},
-		batch_size=mini_batch_size, 
-		epochs=self.epochs,
-		verbose=self.verbose, 
-		validation_data=(
-			x_val,
-			{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
-		callbacks=self.callbacks)
-		
+		start_time = time.time() 
+		num_epochs = 1
+		gamma = 0.5
+
+		hist = self.model.fit(x_train,[y_train_1,y_train_2], batch_size=batch_size, epochs=1, verbose=1)
+
 		duration = time.time() - start_time
 
 		self.model.save(self.output_directory+'last_model.hdf5')
@@ -163,19 +140,22 @@ class Classifier_FCN_MT_AE:
 		# Multitask output 
 		y_pred = model.predict(x_val)
 
+		print(y_pred)
+		"""
 		#Predictions for task1 and task2
 		y_pred_1 = np.argmax(y_pred[0] , axis=1)
 		y_pred_2 = np.argmax(y_pred[1] , axis=1)
 
-		"""
 		save_logs: 
 		Calculate metrics and saves as csv. 
 		Input format: 
 		save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None)
-		"""
+	
 
 		#print(y_pred_1.shape, y_pred_1, y_pred_2)
-		#save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
+		save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
+
+		"""
 
 		keras.backend.clear_session()
 

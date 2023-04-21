@@ -60,7 +60,7 @@ def create_path(root_dir, classifier_name, archive_name):
         return output_directory
 
 
-def read_dataset(root_dir, archive_name, dataset_name,  data_source):
+def read_dataset(root_dir, archive_name, dataset_name, data_source):
     datasets_dict = {}
     cur_root_dir = root_dir.replace('-temp', '')
     if data_source == 'original': 
@@ -163,6 +163,8 @@ def save_logs_stl(output_directory, hist, y_pred, y_true, duration, lr=True, y_t
     index_best_model = hist_df['loss'].idxmin()
     row_best_model = hist_df.loc[index_best_model]
 
+    print(row_best_model)
+
     df_best_model = pd.DataFrame(data=np.zeros((1, 6), dtype=np.float), index=[0],
                                  columns=['best_model_train_loss', 'best_model_val_loss', 'best_model_train_acc',
                                           'best_model_val_acc', 'best_model_learning_rate', 'best_model_nb_epoch'])
@@ -201,11 +203,13 @@ def save_logs_mtl(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2
     """
     Task 2: 
     """
-
+    """
     df_metrics_2 = calculate_metrics(y_true_2, y_pred_2, duration, y_true_val, y_pred_val)
     calculate_classification_report(y_true_2, y_pred_2).to_csv(output_directory + "cr_report_task_2")
     calculate_confusion_matrix(y_true_2, y_pred_2).to_csv(output_directory + "cfm_matrix_task_2")
     df_metrics_2.to_csv(output_directory + 'task2_df_metrics.csv', index=False)
+   
+    """
 
 
     index_best_model = hist_df['loss'].idxmin()
@@ -242,7 +246,7 @@ def save_logs_mtl(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2
     # plot losses
     plot_epochs_metric(hist, output_directory + 'epochs_loss.png')
 
-    return df_metrics_1, df_metrics_2
+    return df_metrics_1#, df_metrics_2
 
 
 def calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1):
