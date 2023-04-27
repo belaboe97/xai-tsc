@@ -134,7 +134,12 @@ def create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_
     if classifier_name == 'fcn_mt_ae': 
         from classifiers_mtl import fcn_mt_ae
         return fcn_mt_ae.Classifier_FCN_MT_AE(output_directory, input_shape, nb_classes_1, gamma,EPOCHS, BATCH_SIZE, verbose)
-
+    if classifier_name == 'fcn_mt_dense': 
+        from classifiers_mtl import fcn_mt_dense
+        return fcn_mt_dense.Classifier_FCN_MT_DENSE(output_directory, input_shape, nb_classes_1, gamma,EPOCHS, BATCH_SIZE, verbose)
+    if classifier_name == 'resnet_mt_dense': 
+        from classifiers_mtl import resnet_mt_dense
+        return resnet_mt_dense.Classifier_RESNET_MT_DENSE(output_directory, input_shape, nb_classes_1, gamma,EPOCHS, BATCH_SIZE, verbose)
 
 
 ############################################### main
