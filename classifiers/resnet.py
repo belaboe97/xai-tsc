@@ -12,13 +12,16 @@ from utils.utils import save_test_duration
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-from utils.utils import save_logs
+from utils.utils import save_logs_stl
 from utils.utils import calculate_metrics
 
 
 class Classifier_RESNET:
 
-    def __init__(self, output_directory, input_shape, nb_classes, verbose=False, build=True, load_weights=False):
+    def __init__(self, output_directory, input_shape, nb_classes, epochs, batch_size,
+                  verbose=False, build=True, load_weights=False):
+        self.epochs = epochs
+        self.batch_size = batch_size 
         self.output_directory = output_directory
         if build == True:
             self.model = self.build_model(input_shape, nb_classes)
@@ -121,12 +124,13 @@ class Classifier_RESNET:
         return model
 
     def fit(self, x_train, y_train, x_val, y_val, y_true):
-        if not tf.test.is_gpu_available:
-            print('error')
-            exit()
+        #if not tf.test.is_gpu_available:
+        #    print('error')
+        #    exit()
+        
         # x_val and y_val are only used to monitor the test loss and NOT for training
-        batch_size = 64
-        nb_epochs = 1500
+        batch_size = self.batch_size
+        nb_epochs = self.epochs
 
         mini_batch_size = int(min(x_train.shape[0] / 10, batch_size))
 
@@ -148,7 +152,7 @@ class Classifier_RESNET:
         # convert the predicted from binary to integer
         y_pred = np.argmax(y_pred, axis=1)
 
-        df_metrics = save_logs(self.output_directory, hist, y_pred, y_true, duration)
+        df_metrics = save_log_stl(self.output_directory, hist, y_pred, y_true, duration)
 
         keras.backend.clear_session()
 

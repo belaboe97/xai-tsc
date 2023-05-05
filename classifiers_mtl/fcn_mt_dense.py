@@ -57,6 +57,7 @@ class Classifier_FCN_MT_DENSE:
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
 		output_layer_2 = keras.layers.Dense(units=150, activation='linear', name='task_2_output')(gap_layer)
+		#linear
 
 
 		print("SHAPE OUTPUT",output_layer_2.shape)
@@ -126,7 +127,7 @@ class Classifier_FCN_MT_DENSE:
 		self.model.save(self.output_directory+'last_model.hdf5')
 		
 		if os.getenv("COLAB_RELEASE_TAG"):
-			model = keras.models.load_model(self.output_directory+'best_model.hdf5')
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
 		else:
 			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
 

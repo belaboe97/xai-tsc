@@ -7,24 +7,6 @@ def get_len_and_step_size(attributions, slices=5):
     return attr_len,step_size
 
 
-def highest_mean_attribution(att,slices): 
-    attr_len, step_size = get_len_and_step_size(att,slices)
-    candidates = []
-    for x in range(0,attr_len,step_size):
-        candidates.append(att[x:x+step_size-1].mean())
-    return np.argmax(candidates)
-
-def create_explanations(attributions,slices):
-    output = []
-    for split in attributions:#
-        explanations = []
-        for ts in split: 
-            x_values = ts[6]
-            label = highest_mean_attribution(ts[3],slices)
-            explanations.append(np.concatenate((label,x_values), axis=None))    
-        output.append(np.array(explanations))
-    return output
-
 def create_pointwise_explanations(attributions):
     output = []
     for split in attributions:
@@ -32,7 +14,7 @@ def create_pointwise_explanations(attributions):
         for ts in split: 
             x_values = ts[1]
             attributions = ts[2]
-            explanations.append(np.concatenate((np.array([x_values]),attributions), axis=None))    
+            explanations.append(np.concatenate((attributions,np.array([x_values])), axis=None))    
         output.append(np.array(explanations))
     return output
 

@@ -9,7 +9,6 @@ from utils.constants import CLASSIFIERS
 from utils.constants import ARCHIVE_NAMES
 from utils.constants import ITERATIONS
 from utils.utils import calculate_attributions, calculate_pointwise_attributions
-from utils.explanations import create_explanations 
 from utils.explanations import create_pointwise_explanations
 from utils.explanations import save_explanations
 import tensorflow as tf
@@ -70,38 +69,13 @@ def fit_classifier_mt():
         x_train_1 = x_train_1.reshape((x_train_1.shape[0], x_train_1.shape[1], 1))
         x_test_1 = x_test_1.reshape((x_test_1.shape[0], x_test_1.shape[1], 1))
 
-    
-    #print("XTRAIn",x_train_1.shape)
     input_shape = x_train_1.shape[1:]
-
-    #print(x_train_1[1:])
-
-
 
     """
     For Task 2: Explanation 
     Extract labels: 
-    """
-
-
-    
+    """    
     _ , y_train_2, _ , y_test_2 = datasets_dict_2[dataset_name] 
-
-    print("SHAPE 2",y_train_2.shape)
-
-    nb_classes_2 = len(np.unique(np.concatenate((y_train_2, y_test_2), axis=0)))
-
-    # transform the labels from integers to one hot vectors
-    """
-    
-    enc = sklearn.preprocessing.OneHotEncoder(categories='auto')
-    enc.fit(np.concatenate((y_train_2, y_test_2), axis=0).reshape(-1, 1))
-    y_train_2 = enc.transform(y_train_2.reshape(-1, 1)).toarray()
-    y_test_2 = enc.transform(y_test_2.reshape(-1, 1)).toarray()
-
-    y_true_2 =  np.argmax(y_test_2, axis=1)
-
-    """
 
     # save orignal y because later we will use binary
     # y_true = np.argmax(y_test, axis=1)
@@ -124,7 +98,7 @@ def create_classifier(classifier_name, input_shape, nb_classes, output_directory
         return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, EPOCHS, BATCH_SIZE,  verbose)
     if classifier_name == 'resnet':
         from classifiers import resnet
-        return resnet.Classifier_RESNET(output_directory, input_shape, nb_classes, verbose)
+        return resnet.Classifier_RESNET(output_directory, input_shape, nb_classes, EPOCHS, BATCH_SIZE,  verbose)
 
 
 def create_classifier_mt(classifier_name, input_shape, nb_classes_1, nb_classes_2, output_directory, gamma, verbose=False):
@@ -151,7 +125,7 @@ import os
 if os.getenv("COLAB_RELEASE_TAG"):
     print("Google Colab Environment detected")
     root_dir =  "/content/drive/My Drive/master thesis/code/xai-tsc"
-    EPOCHS = 400
+    EPOCHS = 1000
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 else: 
@@ -177,7 +151,7 @@ def set_seeds(seed=SEED):
     np.random.seed(seed)
     tf.keras.utils.set_random_seed(seed)
 
-"""
+
 def set_global_determinism(seed=SEED):
     set_seeds(seed=seed)
 
@@ -186,9 +160,11 @@ def set_global_determinism(seed=SEED):
     
     tf.config.threading.set_inter_op_parallelism_threads(1)
     tf.config.threading.set_intra_op_parallelism_threads(1)
-"""
+
+    print("set global determinism")
 
 
+set_global_determinism(SEED)
 
 # this is the code used to launch an experiment on a dataset
 mode = sys.argv[1]
@@ -211,9 +187,9 @@ else:
     gamma = np.float64(gamma)
     #classifier = classifier_name + itr 
 
-
+    classifier = classifier_name + '_' + str(gamma) #+ mode
 def output_path():
-    classifier = classifier_name + itr #+ mode
+    #classifier = classifier_name + str(gamma) #+ mode
 
     output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name.split("_")[0]}/{classifier}/{data_source}/' 
     print(output_directory)
@@ -306,9 +282,6 @@ if mode == 'sequential':
         
         """
 
-
-
-
         # the creation of this directory means
         create_directory(output_directory + '/DONE')
 
@@ -325,13 +298,14 @@ else:
         if mode == 'mtl': 
             datasets_dict_1 = read_dataset(root_dir, archive_name, dataset_name,  'original')
 
-
             def readucr(filename):
                 data = np.loadtxt(filename, delimiter=',')
-                Y = data[:, 150:]
-                X = data[:, :150]
-                return X, Y
+                Y = data[:, :150]
+                X = data[:, 150:]
 
+                print("LENGTHS",len(X),len(Y))
+                
+                return X, Y
     
             def read_dataset(root_dir, archive_name, dataset_name, data_source):
                 datasets_dict = {}

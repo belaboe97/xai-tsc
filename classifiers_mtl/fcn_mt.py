@@ -96,7 +96,6 @@ class Classifier_FCN_MT:
 
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
 		"""
-				
 		if not tf.test.is_gpu_available:
 			print('error')
 			exit()

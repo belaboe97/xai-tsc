@@ -9,14 +9,12 @@ import matplotlib.pyplot as plt
 #matplotlib.rcParams['font.family'] = 'sans-serif'
 #matplotlib.rcParams['font.sans-serif'] = 'Arial'
 import os
-import operator
 
 from utils.constants import UNIVARIATE_DATASET_NAMES as DATASET_NAMES
 from utils.constants import UNIVARIATE_DATASET_NAMES_2018 as DATASET_NAMES_2018
 from utils.constants import ARCHIVE_NAMES  as ARCHIVE_NAMES
 from utils.constants import CLASSIFIERS
 from utils.constants import ITERATIONS
-from utils.constants import MTS_DATASET_NAMES
 
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
@@ -75,7 +73,7 @@ def read_dataset(root_dir, archive_name, dataset_name, data_source):
 
 
 def calculate_metrics(y_true, y_pred, duration, y_true_val=None, y_pred_val=None):
-    res = pd.DataFrame(data=np.zeros((1, 4), dtype=np.float), index=[0],
+    res = pd.DataFrame(data=np.zeros((1, 4), dtype=np.float64), index=[0],
                        columns=['precision', 'accuracy', 'recall', 'duration'])
 
     res['precision'] = precision_score(y_true, y_pred, average='macro')
@@ -102,14 +100,14 @@ def calculate_classification_report(y_true,y_pred):
 
 
 def save_test_duration(file_name, test_duration):
-    res = pd.DataFrame(data=np.zeros((1, 1), dtype=np.float), index=[0],
+    res = pd.DataFrame(data=np.zeros((1, 1), dtype=np.float64), index=[0],
                        columns=['test_duration'])
     res['test_duration'] = test_duration
     res.to_csv(file_name, index=False)
 
 
 def generate_results_csv(output_file_name, root_dir):
-    res = pd.DataFrame(data=np.zeros((0, 7), dtype=np.float), index=[],
+    res = pd.DataFrame(data=np.zeros((0, 7), dtype=np.float64), index=[],
                        columns=['classifier_name', 'archive_name', 'dataset_name',
                                 'precision', 'accuracy', 'recall', 'duration'])
     for classifier_name in CLASSIFIERS:
@@ -165,7 +163,7 @@ def save_logs_stl(output_directory, hist, y_pred, y_true, duration, lr=True, y_t
 
     print(row_best_model)
 
-    df_best_model = pd.DataFrame(data=np.zeros((1, 6), dtype=np.float), index=[0],
+    df_best_model = pd.DataFrame(data=np.zeros((1, 6), dtype=np.float64), index=[0],
                                  columns=['best_model_train_loss', 'best_model_val_loss', 'best_model_train_acc',
                                           'best_model_val_acc', 'best_model_learning_rate', 'best_model_nb_epoch'])
 
@@ -255,8 +253,6 @@ def calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset
     import sklearn
     import os
 
-    max_length = 2000
-    
     if task == 1: 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name,  'original')
     elif task == 2: 
@@ -275,9 +271,12 @@ def calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset
     x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
     x_test  = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
 
-    model = keras.models.load_model( f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+    model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
                                         + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
-                                        + f'best_model.hdf5',compile=False)
+                                        + f'best_model.hdf5'
+    print(model_path)
+    
+    model = keras.models.load_model( model_path ,compile=False)
 
     if mode == 'stl': 
         relu, softm = (-3,-1)
@@ -299,7 +298,7 @@ def calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset
 
             for k, w in enumerate(w_k_c[:,int(y_vals[idx]-1)]):
                 cas += w * conv_out[0, :, k] 
-            attr.append([y_vals,orgx_vals[idx],cas])
+            attr.append([y_vals[idx],orgx_vals[idx],cas])
         output.append(attr)
     return output
 
