@@ -156,7 +156,7 @@ if os.getenv("COLAB_RELEASE_TAG"):
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 else: 
     print("Local Environment detected")
-    root_dir = "G:/My Drive/master thesis/code/xai-tsc"
+    root_dir = "G:/Meine Ablage/master thesis/code/xai-tsc"
     EPOCHS = 1
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
