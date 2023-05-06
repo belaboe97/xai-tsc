@@ -30,10 +30,10 @@ import tensorflow as tf
 #import tensorflow_addons as tfa
 
 
-def readucr(filename):
+def readucr(filename,y_len):
     data = np.loadtxt(filename, delimiter=',')
-    Y = data[:, 0]
-    X = data[:, 1:]
+    Y = data[:, :y_len]
+    X = data[:, y_len:]
     return X, Y
 
 
@@ -58,7 +58,7 @@ def create_path(root_dir, classifier_name, archive_name):
         return output_directory
 
 
-def read_dataset(root_dir, archive_name, dataset_name, data_source):
+def read_dataset(root_dir, archive_name, dataset_name, data_source, y_len):
     datasets_dict = {}
     cur_root_dir = root_dir.replace('-temp', '')
     if data_source == 'original': 
@@ -66,8 +66,8 @@ def read_dataset(root_dir, archive_name, dataset_name, data_source):
     else: 
         file_name = cur_root_dir + '/archives/' + archive_name + '/' + dataset_name  + '/' + data_source + '/'
 
-    x_train, y_train = readucr(file_name + '/' + dataset_name + '_TRAIN')
-    x_test, y_test = readucr(file_name + '/' + dataset_name + '_TEST')
+    x_train, y_train = readucr(file_name + '/' + dataset_name + '_TRAIN', y_len)
+    x_test, y_test = readucr(file_name + '/' + dataset_name + '_TEST', y_len)
     datasets_dict[dataset_name] = (x_train.copy(), y_train.copy(), x_test.copy(),y_test.copy())
     return datasets_dict
 
@@ -156,7 +156,7 @@ def save_logs_stl(output_directory, hist, y_pred, y_true, duration, lr=True, y_t
     hist_df.to_csv(output_directory + 'history.csv', index=False)
 
     df_metrics = calculate_metrics(y_true, y_pred, duration, y_true_val, y_pred_val)
-    df_metrics.to_csv(output_directory + 'df_metrics.csv', index=False)
+    df_metrics.to_csv(output_directory + 'task1_df_metrics.csv', index=False)
 
     index_best_model = hist_df['loss'].idxmin()
     row_best_model = hist_df.loc[index_best_model]
@@ -254,7 +254,7 @@ def calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset
     import os
 
     if task == 1: 
-        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,  'original')
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,  'original', 1)
     elif task == 2: 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name,   data_source)
         
@@ -278,7 +278,7 @@ def calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset
     
     model = keras.models.load_model( model_path ,compile=False)
 
-    if mode == 'stl': 
+    if mode == 'singletask': 
         relu, softm = (-3,-1)
         
     w_k_c = model.layers[softm].get_weights()[0]  # weights for each filter k for each class c
