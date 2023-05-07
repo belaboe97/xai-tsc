@@ -22,17 +22,14 @@ def create_classifier_mt(classifier_name,
         from classifiers_mtl.fcn import fcn_mt_ae
         return fcn_mt_ae.Classifier_FCN_MT_AE(output_directory, input_shape, nb_classes, 
                                               gamma, epochs, batch_size, verbose)
-    
     if classifier_name == 'fcn_mt_dense': 
         from classifiers_mtl.fcn import fcn_mt_dense
         return fcn_mt_dense.Classifier_FCN_MT_DENSE(output_directory, input_shape, nb_classes, 
                                                     gamma, epochs, batch_size, verbose)
-    
     if classifier_name == 'fcn_mt_sigmoid': 
         from classifiers_mtl.fcn import fcn_mt_sigmoid
         return fcn_mt_sigmoid.Classifier_FCN_MT_SIGMOID(output_directory, input_shape, 
                                                         nb_classes, gamma, epochs, batch_size, verbose)
-    
     if classifier_name == 'resnet_mt_dense': 
         from classifiers_mtl.resnet import resnet_mt_dense
         return resnet_mt_dense.Classifier_RESNET_MT_DENSE(output_directory, input_shape, 
@@ -66,7 +63,6 @@ def fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2,
 
         classifier = create_classifier(classifier_name, input_shape, nb_classes, 
                                        output_directory,  epochs, batch_size)
-        
         classifier.fit(x_train, y_train, x_test, y_test, y_true)
 
     if mode == 'multitask': 
@@ -77,5 +73,4 @@ def fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2,
 
         classifier = create_classifier_mt(classifier_name, input_shape, nb_classes, 
                                           output_directory, gamma, epochs, batch_size)
-        
         classifier.fit(x_train, y_train, y_train_2, x_test, y_test , y_test_2, y_true ,y_true_2 = None)

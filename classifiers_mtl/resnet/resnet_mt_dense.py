@@ -112,7 +112,7 @@ class Classifier_RESNET_MT_DENSE:
 
         model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
-        print(model.summary())
+        #print(model.summary())
 
         model.compile(
             optimizer = keras.optimizers.Adam(), 

@@ -5,14 +5,7 @@ import matplotlib
 
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
-
-#matplotlib.rcParams['font.family'] = 'sans-serif'
-#matplotlib.rcParams['font.sans-serif'] = 'Arial'
 import os
-
-from utils.constants import UNIVARIATE_DATASET_NAMES as DATASET_NAMES
-from utils.constants import UNIVARIATE_DATASET_NAMES_2018 as DATASET_NAMES_2018
-from utils.constants import ARCHIVE_NAMES  as ARCHIVE_NAMES
 from utils.constants import CLASSIFIERS
 from utils.constants import ITERATIONS
 
@@ -238,183 +231,14 @@ def save_logs_mtl(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2
 
     df_best_model['best_model_nb_epoch'] = index_best_model
 
+    print(output_directory)
+
     df_best_model.to_csv(output_directory + 'df_best_model.csv', index=False)
 
     # for FCN there is no hyperparameters fine tuning - everything is static in code
     # plot losses
     plot_epochs_metric(hist, output_directory + 'epochs_loss.png')
-
+    
+    print('Saved best model and metrics')
     return df_metrics_1#, df_metrics_2
 
-
-def calculate_pointwise_attributions(root_dir, archive_name, classifier, dataset_name, data_source, mode, task=1):
-    #import tensorflow_addons as tfa
-    import tensorflow.keras as keras
-    import sklearn
-    import os
-
-    if task == 1: 
-        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,  'original', 1)
-    elif task == 2: 
-        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,   data_source)
-        
-    x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
-
-    # transform to binary labels
-    enc = sklearn.preprocessing.OneHotEncoder()
-    enc.fit(np.concatenate((y_train, y_test), axis=0).reshape(-1, 1))
-    y_train_binary = enc.transform(y_train.reshape(-1, 1)).toarray()
-    
-    orgx_train = x_train
-    orgx_test = x_test
-    
-    x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
-    x_test  = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
-
-    model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-                                        + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
-                                        + f'best_model.hdf5'
-    print(model_path)
-    
-    model = keras.models.load_model( model_path ,compile=False)
-
-    if mode == 'singletask': 
-        relu, softm = (-3,-1)
-        
-    w_k_c = model.layers[softm].get_weights()[0]  # weights for each filter k for each class c
-
-    # the same input
-    new_input_layer = model.inputs
-    new_output_layer = [model.layers[relu].output, model.layers[softm].output]
-    new_feed_forward = keras.backend.function(new_input_layer, new_output_layer)
-    output = []
-
-    for orgx_vals,x_vals,y_vals in [[orgx_train,x_train,y_train],[orgx_test,x_test,y_test]]:
-        attr = list()
-        for idx,ts in enumerate(x_vals):
-            ts = ts.reshape(1, -1, 1)
-            [conv_out, predicted] = new_feed_forward([ts])
-            cas = np.zeros(dtype=np.float64, shape=(conv_out.shape[1]))
-
-            for k, w in enumerate(w_k_c[:,int(y_vals[idx]-1)]):
-                cas += w * conv_out[0, :, k] 
-            attr.append([y_vals[idx],orgx_vals[idx],cas])
-        output.append(attr)
-    return output
-
-def calculate_attributions(root_dir, archive_name, classifier,  dataset_name, data_source, mode, task=1):
-    
-
-    #import tensorflow_addons as tfa
-    import tensorflow.keras as keras
-    import sklearn
-    import os
-
-
-    if os.getenv("COLAB_RELEASE_TAG"):
-        from tensorflow.keras.utils import CustomObjectScope
-    else: 
-        from keras.utils.generic_utils import CustomObjectScope
-
-    max_length = 2000
-    
-    if task == 1: 
-        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,  'original')
-    elif task == 2: 
-        datasets_dict = read_dataset(root_dir, archive_name, dataset_name,   data_source)
-        
-    x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
-
-    # transform to binary labels
-    enc = sklearn.preprocessing.OneHotEncoder()
-    enc.fit(np.concatenate((y_train, y_test), axis=0).reshape(-1, 1))
-    y_train_binary = enc.transform(y_train.reshape(-1, 1)).toarray()
-    
-    orgx_train = x_train
-    orgx_test = x_test
-    
-    x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
-    x_test  = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
-
-
-
-    print(f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-                                        + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
-                                        + f'best_model.hdf5')
-    model = keras.models.load_model( f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-                                        + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
-                                        + f'best_model.hdf5')
-    
-
-
-    # filters
-    # Output is both the original as well as the before last layer
-    # layers[-3] : KerasTensor(type_spec=TensorSpec(shape=(None, 150, 128), dtype=tf.float32, name=None), name='activation_8/Relu:0', description="created by layer 'activation_8'") 
-    # layers[-1] : KerasTensor(type_spec=TensorSpec(shape=(None, 2), dtype=tf.float32, name=None), name='dense/Softmax:0', description="created by layer 'dense'")
-    if mode == 'stl': 
-        relu, softm = (-3,-1)
-    if mode == 'mtl': 
-        if task == 1: 
-            relu, softm = (-4,-2)
-            print("yes")
-        elif task == 2:
-            relu, softm = (-4,-1)
-        
-    w_k_c = model.layers[softm].get_weights()[0]  # weights for each filter k for each class c
-
-    # the same input
-    new_input_layer = model.inputs
-
-    new_output_layer = [model.layers[relu].output, model.layers[softm].output]
-
-    new_feed_forward = keras.backend.function(new_input_layer, new_output_layer)
-    
-    print(x_train.shape,x_test.shape)
-    
-    output = []
-
-    for orgx_vals,x_vals,y_vals in [[orgx_train,x_train,y_train],[orgx_test,x_test,y_test]]:
-        attr = []
-        classes = np.unique(y_vals)
-        for c in classes:
-            ts_class = np.where(y_vals == c)
-            #get time series data 
-            c_x_train = x_vals[ts_class]
-            for idx,ts in enumerate(c_x_train):
-                ts_nr=ts_class[0][idx]
-                ts = ts.reshape(1, -1, 1)
-                [conv_out, predicted] = new_feed_forward([ts])
-                pred_label = np.argmax(predicted)
-                orig_label = np.argmax(enc.transform([[c]]))
-                if True: 
-                    cas = np.zeros(dtype=np.float64, shape=(conv_out.shape[1]))
-                    #print(w_k_c.shape,orig_label)
-                    for k, w in enumerate(w_k_c[:, orig_label]):
-                        cas += w * conv_out[0, :, k] 
-                    minimum = np.min(cas)
-                    cas = cas - minimum
-                    cas = cas / max(cas)
-                    cas = cas * 100
-                    x = np.linspace(0, ts.shape[1] - 1, max_length, endpoint=True)
-                    # linear interpolation to smooth
-                    f = interp1d(range(ts.shape[1]), ts[0, :, 0])
-                    y = f(x)
-                    f = interp1d(range(ts.shape[1]), cas)
-                    cas = f(x).astype(int)
-                    attr.append([ts_nr,x,y,cas,pred_label,orig_label,orgx_vals[ts_nr]])
-        output.append(sorted(attr, key=lambda x: x[0]))
-    return output
-
-
-def save_attributions(output_directory, att, task, save_mode = 1): 
-    task_name = 'task_1' if task == 1 else 'task_2'
-    att_train, att_test = att
-    if save_mode == 1: 
-        np.save(output_directory  + f'calculated_attribution_train_{task_name}.npy', att_train)
-        np.save(output_directory  + f'calculated_attribution_test_{task_name}.npy', att_test)
-    if save_mode == 2:
-        pd.DataFrame(att_train, columns=['ts_nr','x_val','y_val','attributions','pred_y','true_y','orginal_ts'])\
-        .to_csv(output_directory + f'calculated_attribution_train_{task_name}.csv')
-        pd.DataFrame(att_train, columns=['ts_nr','x_val','y_val','attributions','pred_y','true_y','orginal_ts'])\
-        .to_csv(output_directory + f'calculated_attribution_test_{task_name}.csv')
-    print("Saved attributions")

@@ -28,10 +28,7 @@ class Classifier_FCN_MT_SIGMOID:
 
 
 	def build_model(self, input_shape, nb_classes_1):
-
-
-
-		print("input_shape",input_shape)
+		
 		"""
 		Main branch, shared features. 
 		"""
@@ -72,7 +69,7 @@ class Classifier_FCN_MT_SIGMOID:
 
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
-		print(model.summary())
+		#print(model.summary())
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 

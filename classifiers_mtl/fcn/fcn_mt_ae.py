@@ -28,10 +28,6 @@ class Classifier_FCN_MT_AE:
 
 
 	def build_model(self, input_shape, nb_classes_1):
-
-
-
-		print("input_shape",input_shape)
 		"""
 		Main branch, shared features. 
 		"""
@@ -41,31 +37,23 @@ class Classifier_FCN_MT_AE:
 		conv1 = keras.layers.BatchNormalization()(conv1)
 		conv1 = keras.layers.Activation(activation='relu')(conv1)
 
-		print(conv1.shape)
-
 		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same')(conv1)
 		conv2 = keras.layers.BatchNormalization()(conv2)
 		conv2 = keras.layers.Activation('relu')(conv2)
 
-		print(conv2.shape)
-
-
 		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
 		conv3 = keras.layers.BatchNormalization()(conv3)
 		conv3 = keras.layers.Activation('relu')(conv3)
-
-		print(conv3.shape)
-
 		
 		gap_layer = keras.layers.AveragePooling1D()(conv3)
 
 
 
-		print("POOL size", gap_layer.shape)
+		#print("POOL size", gap_layer.shape)
 
 		output_for_task_1 = keras.layers.GlobalAveragePooling1D()(gap_layer)  # alternative to GlobalAveragePooling1D
 
-		print( keras.layers.GlobalAveragePooling1D()(conv3).shape)
+		#print( keras.layers.GlobalAveragePooling1D()(conv3).shape)
 
 		"""a
 		Decoder 
@@ -77,7 +65,7 @@ class Classifier_FCN_MT_AE:
 
 		upsample = keras.layers.UpSampling1D()(gap_layer)
 
-		print("upsample", upsample.shape)
+		#print("upsample", upsample.shape)
 		
 		#reshaped_gap_layer = keras.layers.Reshape((128,1))(gap_layer)
 
@@ -93,10 +81,10 @@ class Classifier_FCN_MT_AE:
 		conv6 = keras.layers.BatchNormalization()(conv6)
 		conv6 = keras.layers.Activation('relu')(conv6)
 
-		print("Conv6",conv6.shape)
+		#print("Conv6",conv6.shape)
 
 		flat_layer = keras.layers.Flatten()(conv6) 
-		print(flat_layer.shape)
+		#print(flat_layer.shape)
 
 		#decoder = keras.Model(decoder_input, decoder_output, name="decoder")
 
@@ -105,11 +93,11 @@ class Classifier_FCN_MT_AE:
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(output_for_task_1)
 
-		print("INPUT SHAPE", input_shape[0],input_shape[1])
+		#print("INPUT SHAPE", input_shape[0],input_shape[1])
 		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='sigmoid', name='task_2_output')(conv6)
 
 
-		print("SHAPE OUTPUT",output_layer_2.shape)
+		#print("SHAPE OUTPUT",output_layer_2.shape)
 
 
 		"""
@@ -119,7 +107,7 @@ class Classifier_FCN_MT_AE:
 
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
-		print(model.summary())
+		#print(model.summary())
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
