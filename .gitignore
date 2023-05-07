@@ -5,6 +5,7 @@ __pycache__/
 
 #archives-ucr
 archives/ucr*
+results/*
 
 # C extensions
 *.so

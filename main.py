@@ -1,157 +1,190 @@
 from utils.utils import generate_results_csv
 from utils.utils import create_directory
 from utils.utils import read_dataset
-from utils.utils import transform_mts_to_ucr_format
-from utils.utils import visualize_filter
-from utils.utils import viz_for_survey_paper
-from utils.utils import viz_cam
 import os
 import numpy as np
 import sys
 import sklearn
-import GeneratingExplanations
 from utils.constants import CLASSIFIERS
-from utils.constants import ARCHIVE_NAMES
 from utils.constants import ITERATIONS
-from utils.utils import read_all_datasets
+from utils.explanations import calculate_cam_attributions
+from utils.explanations import create_cam_explanations
+from utils.explanations import save_explanations
+import tensorflow as tf
+from utils.classifiers import fit_classifier
+
+###### SETTINGS
 
 
-def fit_classifier():
-    x_train = datasets_dict[dataset_name][0]
-    y_train = datasets_dict[dataset_name][1]
-    x_test = datasets_dict[dataset_name][2]
-    y_test = datasets_dict[dataset_name][3]
+if os.getenv("COLAB_RELEASE_TAG"):
+    print("Google Colab Environment detected")
+    root_dir =  "/content/drive/My Drive/master thesis/code/xai-tsc"
+    EPOCHS = 400
+    BATCH_SIZE = 16
+    print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
+else: 
+    print("Local Environment detected")
+    root_dir = "G:/Meine Ablage/master thesis/code/xai-tsc"
+    EPOCHS = 1
+    BATCH_SIZE = 16
+    print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 
-    nb_classes = len(np.unique(np.concatenate((y_train, y_test), axis=0)))
-
-    # transform the labels from integers to one hot vectors
-    enc = sklearn.preprocessing.OneHotEncoder(categories='auto')
-    enc.fit(np.concatenate((y_train, y_test), axis=0).reshape(-1, 1))
-    y_train = enc.transform(y_train.reshape(-1, 1)).toarray()
-    y_test = enc.transform(y_test.reshape(-1, 1)).toarray()
-
-    # save orignal y because later we will use binary
-    y_true = np.argmax(y_test, axis=1)
-
-    if len(x_train.shape) == 2:  # if univariate
-        # add a dimension to make it multivariate with one dimension 
-        x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
-        x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
-
-    input_shape = x_train.shape[1:]
-    classifier = create_classifier(classifier_name, input_shape, nb_classes, output_directory)
-
-    classifier.fit(x_train, y_train, x_test, y_test, y_true)
+#Set random seed 
+#https://stackoverflow.com/questions/36288235/how-to-get-stable-results-with-tensorflow-setting-random-seed
 
 
-def create_classifier(classifier_name, input_shape, nb_classes, output_directory, verbose=True):
-    if classifier_name == 'fcn':
-        from classifiers import fcn
-        return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, verbose)
-    if classifier_name == 'mlp':
-        from classifiers import mlp
-        return mlp.Classifier_MLP(output_directory, input_shape, nb_classes, verbose)
-    if classifier_name == 'resnet':
-        from classifiers import resnet
-        return resnet.Classifier_RESNET(output_directory, input_shape, nb_classes, verbose)
-    if classifier_name == 'mcnn':
-        from classifiers import mcnn
-        return mcnn.Classifier_MCNN(output_directory, verbose)
-    if classifier_name == 'tlenet':
-        from classifiers import tlenet
-        return tlenet.Classifier_TLENET(output_directory, verbose)
-    if classifier_name == 'twiesn':
-        from classifiers import twiesn
-        return twiesn.Classifier_TWIESN(output_directory, verbose)
-    if classifier_name == 'encoder':
-        from classifiers import encoder
-        return encoder.Classifier_ENCODER(output_directory, input_shape, nb_classes, verbose)
-    if classifier_name == 'mcdcnn':
-        from classifiers import mcdcnn
-        return mcdcnn.Classifier_MCDCNN(output_directory, input_shape, nb_classes, verbose)
-    if classifier_name == 'cnn':  # Time-CNN
-        from classifiers import cnn
-        return cnn.Classifier_CNN(output_directory, input_shape, nb_classes, verbose)
-    if classifier_name == 'inception':
-        from classifiers import inception
-        return inception.Classifier_INCEPTION(output_directory, input_shape, nb_classes, verbose)
+SEED = 0
+SLICES = 5
+DATASET_NAMES = ['GunPoint','Coffee'] # #'wafer'
+
+print(f'In fixed SEED mode: {SEED}')
+print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
+
+def set_seeds(seed=SEED):
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+    tf.keras.utils.set_random_seed(seed)
 
 
-############################################### main
+def set_global_determinism(seed=SEED):
+    set_seeds(seed=seed)
 
-# change this directory for your machine
-root_dir = '/dl-4-tsc/'
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+    
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
 
-if sys.argv[1] == 'run_all':
-    for classifier_name in CLASSIFIERS:
-        print('classifier_name', classifier_name)
+    print("set global determinism")
 
-        for archive_name in ARCHIVE_NAMES:
-            print('\tarchive_name', archive_name)
 
-            datasets_dict = read_all_datasets(root_dir, archive_name)
+set_global_determinism(SEED)
 
-            for iter in range(ITERATIONS):
-                print('\t\titer', iter)
+#ARGS  
+mode = sys.argv[1]
+if mode == 'singletask' or mode == 'multitask':
+    archive_name = sys.argv[2]
+    dataset_name = sys.argv[3]
+    classifier_name = sys.argv[4]
+    itr = sys.argv[5] if sys.argv[5] != '_itr_0' else ''
+    data_source = sys.argv[6] 
+    data_dest = sys.argv[7]
+    gamma = 0.5 if sys.argv[8] == None else sys.argv[8]
+    gamma = np.float64(gamma)
+    classifier = classifier_name + '_' + str(gamma) 
 
-                trr = ''
-                if iter != 0:
-                    trr = '_itr_' + str(iter)
 
-                tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + trr + '/'
 
-                for dataset_name in GeneratingExplanations.constants.dataset_names_for_archive[archive_name]:
-                    print('\t\t\tdataset_name: ', dataset_name)
-
-                    output_directory = tmp_output_directory + dataset_name + '/'
-
-                    create_directory(output_directory)
-
-                    fit_classifier()
-
-                    print('\t\t\t\tDONE')
-
-                    # the creation of this directory means
-                    create_directory(output_directory + '/DONE')
-
-elif sys.argv[1] == 'transform_mts_to_ucr_format':
-    transform_mts_to_ucr_format()
-elif sys.argv[1] == 'visualize_filter':
-    visualize_filter(root_dir)
-elif sys.argv[1] == 'viz_for_survey_paper':
-    viz_for_survey_paper(root_dir)
-elif sys.argv[1] == 'viz_cam':
-    viz_cam(root_dir)
-elif sys.argv[1] == 'generate_results_csv':
-    res = generate_results_csv('results.csv', root_dir)
-    print(res.to_string())
-else:
-    # this is the code used to launch an experiment on a dataset
-    archive_name = sys.argv[1]
-    dataset_name = sys.argv[2]
-    classifier_name = sys.argv[3]
-    itr = sys.argv[4]
-
-    if itr == '_itr_0':
-        itr = ''
-
-    output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + itr + '/' + \
-                       dataset_name + '/'
-
+def output_path():
+    output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name.split("_")[0]}/{classifier}/{data_source}/' 
     test_dir_df_metrics = output_directory + 'df_metrics.csv'
 
     print('Method: ', archive_name, dataset_name, classifier_name, itr)
+    return output_directory, test_dir_df_metrics
+
+
+
+
+if mode == 'singletask':
+
+    output_directory, test_dir_df_metrics = output_path()
 
     if os.path.exists(test_dir_df_metrics):
         print('Already done')
     else:
-
         create_directory(output_directory)
-        datasets_dict = read_dataset(root_dir, archive_name, dataset_name)
 
-        fit_classifier()
+    datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
+    fit_classifier(classifier_name, mode, datasets_dict, None, 
+                   output_directory, gamma, EPOCHS, BATCH_SIZE)
+    att = calculate_cam_attributions(root_dir, archive_name, classifier, 
+                                           dataset_name, data_source)
+    exp = create_cam_explanations(att, minmax_norm=True)
+    save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
 
-        print('DONE')
+if mode == 'multitask': 
 
-        # the creation of this directory means
-        create_directory(output_directory + '/DONE')
+    output_directory, test_dir_df_metrics = output_path()
+
+    if os.path.exists(test_dir_df_metrics):
+        print('Already done')
+    else:
+        create_directory(output_directory)
+
+    datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
+    x,_,_,_ =  datasets_dict
+    datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, data_source, len(x[0]))[dataset_name]
+    fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
+                   output_directory, gamma, EPOCHS, BATCH_SIZE)
+
+if mode == 'experiment_1': 
+
+    archive_name = 'ucr'
+    gammas = [1.0, 0.75, 0.5, 0.25, 0.0]
+
+    for dataset_name in DATASET_NAMES: 
+
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
+
+        for classifier_name in CLASSIFIERS: 
+            
+            # TODO: for data_source in ATTRIBUTION_METHODS: // currently just minmax 
+            data_source = 'original'
+            data_dest = classifier_name + "_" + 'minmax' 
+
+            gamma = 1.0
+            classifier = f'{classifier_name}_{gamma}'
+
+            output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}/{classifier}/{data_source}/' 
+            
+            test_dir_df_metrics = output_directory + 'df_metrics.csv'
+
+            if os.path.exists(test_dir_df_metrics):
+                print('Already done')
+            else:
+                create_directory(output_directory)
+
+            fit_classifier(classifier_name, 'singletask', datasets_dict, None, 
+                        output_directory, gamma, EPOCHS, BATCH_SIZE)
+            
+            att = calculate_cam_attributions(root_dir, archive_name, classifier, 
+                                                dataset_name, data_source)
+            
+            exp = create_cam_explanations(att, minmax_norm=True)
+            save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
+
+
+            # assert that each x value is equally long 
+            exp_len  = len(datasets_dict[0][0]) 
+            # Re
+            datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, data_dest, exp_len)[dataset_name]
+
+            mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
+
+            for mtclassifier in os.listdir(mtc_path):
+
+                if classifier_name in mtclassifier:
+
+                    mt_classifier = mtclassifier.split('.')[0]
+
+                    for gamma in gammas:  
+                        print(mt_classifier, gamma)
+                        classifier = f'{mt_classifier}_{gamma}'
+
+                        output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}' \
+                            f'/{classifier}/{data_dest}/'  
+                        
+                        if os.path.exists(test_dir_df_metrics):
+                            print('Already done')
+                        else:
+                            create_directory(output_directory)
+
+                        fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, gamma, 
+                                    EPOCHS, BATCH_SIZE)
+
+
+print('DONE')
+
+# the creation of this directory means
+create_directory(output_directory + '/DONE')
