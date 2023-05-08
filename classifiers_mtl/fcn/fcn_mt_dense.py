@@ -68,10 +68,11 @@ class Classifier_FCN_MT_DENSE:
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
 		#print(model.summary())
+		#'task_2_output': 'mae'
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': 'mae'},
+			loss={'task_1_output': 'categorical_crossentropy','task_2_output': tf.keras.losses.CosineSimilarity(axis=1)},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 

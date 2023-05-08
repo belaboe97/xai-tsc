@@ -2,8 +2,33 @@
 import numpy as np
 import pandas as pd
 import sklearn 
+import os 
+import tensorflow as tf
+
+SEED =0
+
+def set_seeds(seed=SEED):
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+    tf.keras.utils.set_random_seed(seed)
+
+
+def set_global_determinism(seed=SEED):
+    set_seeds(seed=seed)
+
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+    
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+
+    print("set global determinism")
+
+
 
 def create_classifier(classifier_name, input_shape, nb_classes, output_directory, epochs, batch_size, verbose=True):
+    set_global_determinism(0)
     if classifier_name == 'fcn':
         from classifiers import fcn
         return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, epochs, batch_size,  verbose)
@@ -17,7 +42,7 @@ def create_classifier_mt(classifier_name,
                          output_directory, gamma, 
                          epochs, batch_size,
                          verbose=False):
-
+    set_global_determinism(0)
     if classifier_name == 'fcn_mt_ae': 
         from classifiers_mtl.fcn import fcn_mt_ae
         return fcn_mt_ae.Classifier_FCN_MT_AE(output_directory, input_shape, nb_classes, 
@@ -37,8 +62,7 @@ def create_classifier_mt(classifier_name,
     
 def fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
                    output_directory, gamma, epochs, batch_size):
-
-
+    set_global_determinism(0)
     x_train, y_train, x_test, y_test = datasets_dict
 
     nb_classes = len(np.unique(np.concatenate((y_train, y_test), axis=0)))

@@ -47,15 +47,15 @@ class Classifier_FCN_MT_AE:
 		
 		gap_layer = keras.layers.AveragePooling1D()(conv3)
 
-
-
-		#print("POOL size", gap_layer.shape)
-
+		
 		output_for_task_1 = keras.layers.GlobalAveragePooling1D()(gap_layer)  # alternative to GlobalAveragePooling1D
+
+		#outp = keras.layers.Flatten()(gap_layer)
+		#output_for_task_1 = keras.layers.Dense(1)(outp)
 
 		#print( keras.layers.GlobalAveragePooling1D()(conv3).shape)
 
-		"""a
+		"""
 		Decoder 
 		"""
 
@@ -64,10 +64,6 @@ class Classifier_FCN_MT_AE:
 		#dense_layer = keras.layers.Reshape((1, 128))(dense_layer)
 
 		upsample = keras.layers.UpSampling1D()(gap_layer)
-
-		#print("upsample", upsample.shape)
-		
-		#reshaped_gap_layer = keras.layers.Reshape((128,1))(gap_layer)
 
 		conv4 = keras.layers.Conv1DTranspose(filters=128, kernel_size=3, padding='same')(upsample)
 		conv4 = keras.layers.BatchNormalization()(conv4)
@@ -84,7 +80,6 @@ class Classifier_FCN_MT_AE:
 		#print("Conv6",conv6.shape)
 
 		flat_layer = keras.layers.Flatten()(conv6) 
-		#print(flat_layer.shape)
 
 		#decoder = keras.Model(decoder_input, decoder_output, name="decoder")
 
@@ -92,8 +87,6 @@ class Classifier_FCN_MT_AE:
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(output_for_task_1)
-
-		#print("INPUT SHAPE", input_shape[0],input_shape[1])
 		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='sigmoid', name='task_2_output')(conv6)
 
 

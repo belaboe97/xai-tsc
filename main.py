@@ -25,7 +25,7 @@ if os.getenv("COLAB_RELEASE_TAG"):
 else: 
     print("Local Environment detected")
     root_dir = "G:/Meine Ablage/master thesis/code/xai-tsc"
-    EPOCHS = 1
+    EPOCHS = 3
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 
@@ -35,7 +35,7 @@ else:
 
 SEED = 0
 SLICES = 5
-DATASET_NAMES = ['GunPoint','Coffee'] # #'wafer'
+DATASET_NAMES = ['GunPoint'] # ,'Coffee'] # #'wafer'
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -121,7 +121,7 @@ if mode == 'multitask':
 if mode == 'experiment_1': 
 
     archive_name = 'ucr'
-    gammas = [1.0, 0.75, 0.5, 0.25, 0.0]
+    gammas = [1.0, 0.5]#, 0.75, 0.5, 0.25, 0.0]
 
     for dataset_name in DATASET_NAMES: 
 
@@ -179,6 +179,8 @@ if mode == 'experiment_1':
                             print('Already done')
                         else:
                             create_directory(output_directory)
+
+                        # TODO: Add support for Cosine Similarity and pearson correlation
 
                         fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, gamma, 
                                     EPOCHS, BATCH_SIZE)
