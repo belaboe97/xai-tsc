@@ -36,6 +36,8 @@ else:
 SEED = 0
 SLICES = 5
 DATASET_NAMES = ['GunPoint'] # ,'Coffee'] # #'wafer'
+LOSSES = ['mse', 'cosinesim']
+
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -84,8 +86,6 @@ def output_path():
     return output_directory, test_dir_df_metrics
 
 
-
-
 if mode == 'singletask':
 
     output_directory, test_dir_df_metrics = output_path()
@@ -116,7 +116,7 @@ if mode == 'multitask':
     x,_,_,_ =  datasets_dict
     datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, data_source, len(x[0]))[dataset_name]
     fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
-                   output_directory, gamma, EPOCHS, BATCH_SIZE)
+                   output_directory, 'mae', gamma, EPOCHS, BATCH_SIZE)
 
 if mode == 'experiment_1': 
 
@@ -146,7 +146,8 @@ if mode == 'experiment_1':
                 create_directory(output_directory)
 
             fit_classifier(classifier_name, 'singletask', datasets_dict, None, 
-                        output_directory, gamma, EPOCHS, BATCH_SIZE)
+                        output_directory, None, gamma, EPOCHS, BATCH_SIZE)
+                        
             
             att = calculate_cam_attributions(root_dir, archive_name, classifier, 
                                                 dataset_name, data_source)
@@ -172,18 +173,21 @@ if mode == 'experiment_1':
                         print(mt_classifier, gamma)
                         classifier = f'{mt_classifier}_{gamma}'
 
-                        output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}' \
-                            f'/{classifier}/{data_dest}/'  
-                        
-                        if os.path.exists(test_dir_df_metrics):
-                            print('Already done')
-                        else:
-                            create_directory(output_directory)
+                        #Added support for Cosine Similarity 
+                        for loss in LOSSES: 
 
-                        # TODO: Add support for Cosine Similarity and pearson correlation
+                            output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}' \
+                                f'/{classifier}/{data_dest}_{loss}/'  
+                            
+                            if os.path.exists(test_dir_df_metrics):
+                                print('Already done')
+                            else:
+                                create_directory(output_directory)
 
-                        fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, gamma, 
-                                    EPOCHS, BATCH_SIZE)
+                            lossf = tf.keras.losses.CosineSimilarity(axis=1) if loss == 'cosinesim' else loss
+
+                            fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, 
+                                           lossf, gamma, EPOCHS, BATCH_SIZE)
 
 
 print('DONE')
