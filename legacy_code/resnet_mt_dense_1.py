@@ -12,29 +12,25 @@ from utils.utils import save_test_duration
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-from utils.utils import save_logs_stl
+from utils.utils import save_logs
 from utils.utils import calculate_metrics
 
 
-class Classifier_RESNET:
+class Classifier_RESNET_MT_DENSE:
 
-    def __init__(self, output_directory, input_shape, nb_classes, epochs, batch_size,
-                  verbose=False, build=True, load_weights=False):
-        self.epochs = epochs
-        self.batch_size = batch_size 
+    def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
         self.output_directory = output_directory
+        self.gamma = gamma
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.latent_inputs = None
+        self.output_2_loss = lossf
         if build == True:
-            self.model = self.build_model(input_shape, nb_classes)
-            if (verbose == True):
+            self.model = self.build_model(input_shape, nb_classes_1)
+            if(verbose==True):
                 self.model.summary()
             self.verbose = verbose
-            if load_weights == True:
-                self.model.load_weights(self.output_directory
-                                        .replace('resnet_augment', 'resnet')
-                                        .replace('TSC_itr_augment_x_10', 'TSC_itr_10')
-                                        + '/model_init.hdf5')
-            else:
-                self.model.save_weights(self.output_directory + 'model_init.hdf5')
+            self.model.save_weights(self.output_directory+'model_init.hdf5')
         return
 
     def build_model(self, input_shape, nb_classes):
@@ -105,46 +101,42 @@ class Classifier_RESNET:
 
         gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
 
-        output_layer = keras.layers.Dense(nb_classes, activation='softmax',  name="task_1_output")(gap_layer)
+        """
+		Specific Output layers: 
+		"""
 
-        model = keras.models.Model(inputs=input_layer, outputs=output_layer)
+        output_layer_1 = keras.layers.Dense(nb_classes, activation='softmax', name='task_1_output')(gap_layer)
 
-        model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(),
-                      metrics=['accuracy'])
+        output_layer_2 = keras.layers.Dense(units=150, activation='linear', name='task_2_output')(gap_layer)
+
+        model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
+
+        #print(model.summary())
+
+        model.compile(
+            optimizer = keras.optimizers.Adam(), 
+            loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': 'mae'},
+            loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
+            metrics=['accuracy']) #mae
 
         reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50, min_lr=0.0001)
 
         file_path = self.output_directory + 'best_model.hdf5'
 
-
-        tensorborad = tf.keras.callbacks.TensorBoard(
-            log_dir='./logs',
-            histogram_freq=0,
-            write_graph=True,
-            write_images=True,
-            write_steps_per_second=False,
-            update_freq='epoch',
-            profile_batch=0,
-            embeddings_freq=0,
-            embeddings_metadata=None,
-        )
-
-
         model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss',
                                                            save_best_only=True)
 
-        self.callbacks = [reduce_lr, model_checkpoint,tensorborad]
+        self.callbacks = [reduce_lr, model_checkpoint]
 
         return model
 
     def fit(self, x_train, y_train, x_val, y_val, y_true):
-        #if not tf.test.is_gpu_available:
-        #    print('error')
-        #    exit()
-        
+        if not tf.test.is_gpu_available:
+            print('error')
+            exit()
         # x_val and y_val are only used to monitor the test loss and NOT for training
-        batch_size = self.batch_size
-        nb_epochs = self.epochs
+        batch_size = 64
+        nb_epochs = 1500
 
         mini_batch_size = int(min(x_train.shape[0] / 10, batch_size))
 
@@ -166,7 +158,7 @@ class Classifier_RESNET:
         # convert the predicted from binary to integer
         y_pred = np.argmax(y_pred, axis=1)
 
-        df_metrics = save_logs_stl(self.output_directory, hist, y_pred, y_true, duration)
+        df_metrics = save_logs(self.output_directory, hist, y_pred, y_true, duration)
 
         keras.backend.clear_session()
 

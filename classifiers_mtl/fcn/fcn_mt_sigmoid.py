@@ -56,7 +56,7 @@ class Classifier_FCN_MT_SIGMOID:
 
 		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
 
-		output_layer_2 = keras.layers.Dense(units=input[0], activation='sigmoid', name='task_2_output')(gap_layer)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='sigmoid', name='task_2_output')(gap_layer)
 		#linear
 
 

@@ -88,12 +88,7 @@ class Classifier_FCN_MT_AE:
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(output_for_task_1)
-		print(input[0])
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input[0], kernel_size=8, padding='same', activation='sigmoid', name='task_2_output')(conv6)
-
-
-		#print("SHAPE OUTPUT",output_layer_2.shape)
-
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='linear', name='task_2_output')(conv6)
 
 		"""
 		Define model: 

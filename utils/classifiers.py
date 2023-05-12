@@ -32,6 +32,9 @@ def create_classifier(classifier_name, input_shape, nb_classes, output_directory
     if classifier_name == 'fcn':
         from classifiers import fcn
         return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, epochs, batch_size,  verbose)
+    if classifier_name == 'encoder':
+        from classifiers import encoder 
+        return encoder.Classifier_ENCODER(output_directory, input_shape, nb_classes, epochs, batch_size,  verbose)
     if classifier_name == 'resnet':
         from classifiers import resnet
         return resnet.Classifier_RESNET(output_directory, input_shape, nb_classes, epochs, batch_size,  verbose)
@@ -55,11 +58,21 @@ def create_classifier_mt(classifier_name,
         from classifiers_mtl.fcn import fcn_mt_sigmoid
         return fcn_mt_sigmoid.Classifier_FCN_MT_SIGMOID(output_directory, input_shape, nb_classes, lossf,
                                                         gamma, epochs, batch_size, verbose)
+    if classifier_name == 'fcn_mt_relus': 
+        from classifiers_mtl.fcn import fcn_mt_relus
+        return fcn_mt_relus.Classifier_FCN_MT_RELUS(output_directory, input_shape, nb_classes, lossf,
+                                                        gamma, epochs, batch_size, verbose)
+
     if classifier_name == 'resnet_mt_dense': 
         from classifiers_mtl.resnet import resnet_mt_dense
         return resnet_mt_dense.Classifier_RESNET_MT_DENSE(output_directory, input_shape, nb_classes, lossf, 
                                                           gamma, epochs, batch_size, verbose)
     
+    if classifier_name == 'resnet_mt_sigmoid': 
+        from classifiers_mtl.resnet import resnet_mt_sigmoid
+        return resnet_mt_sigmoid.Classifier_RESNET_MT_SIGMOID(output_directory, input_shape, nb_classes, lossf, 
+                                                            gamma, epochs, batch_size, verbose)
+        
 def fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
                    output_directory, lossf, gamma, epochs, batch_size):
     
