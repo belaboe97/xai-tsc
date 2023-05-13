@@ -10,7 +10,7 @@ from utils.utils import save_logs_stl
 from utils.utils import calculate_metrics
 
 
-class Classifier_FCN:
+class Classifier_FCN_TEST:
     def __init__(
         self,
         output_directory,
@@ -53,15 +53,18 @@ class Classifier_FCN:
         conv3 = keras.layers.BatchNormalization()(conv3)
         conv3 = keras.layers.Activation("relu")(conv3)
 
-        print(conv3.shape)
+    
+        #print(conv3.shape)
 
         gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
 
-        print(gap_layer.shape)
+        flatten_layer = keras.layers.Flatten()(conv3)
+
+        #print(gap_layer.shape)
 
         output_layer = keras.layers.Dense(
             nb_classes, activation="softmax", name="task_1_output"
-        )(gap_layer)
+        )(flatten_layer)
 
         model = keras.models.Model(inputs=input_layer, outputs=output_layer)
 

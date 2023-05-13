@@ -32,6 +32,9 @@ def create_classifier(classifier_name, input_shape, nb_classes, output_directory
     if classifier_name == 'fcn':
         from classifiers import fcn
         return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, epochs, batch_size,  verbose)
+    if classifier_name == 'fcn_test':
+        from classifiers import fcn_test
+        return fcn_test.Classifier_FCN_TEST(output_directory, input_shape, nb_classes, epochs, batch_size,  verbose)
     if classifier_name == 'encoder':
         from classifiers import encoder 
         return encoder.Classifier_ENCODER(output_directory, input_shape, nb_classes, epochs, batch_size,  verbose)

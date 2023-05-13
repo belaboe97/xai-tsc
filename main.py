@@ -91,19 +91,21 @@ if mode == 'singletask':
 
     output_directory, test_dir_df_metrics = output_path()
 
-    if os.path.exists(test_dir_df_metrics):
+    if False: #os.path.exists(test_dir_df_metrics):
         print('Already done')
     else:
         create_directory(output_directory)
+
+    print(output_directory)
 
     datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
     fit_classifier(classifier_name, mode, datasets_dict, None, 
                    output_directory, 'mse', gamma, EPOCHS, BATCH_SIZE)
     
-    att = calculate_cam_attributions(root_dir, archive_name, classifier, 
-                                           dataset_name, data_source)
-    exp = create_cam_explanations(att, minmax_norm=True)
-    save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
+    #att = calculate_cam_attributions(root_dir, archive_name, classifier, 
+                                          # dataset_name, data_source)
+    #exp = create_cam_explanations(att, minmax_norm=True)
+    #save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
 
 if mode == 'multitask': 
 
