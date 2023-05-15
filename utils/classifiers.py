@@ -70,6 +70,11 @@ def create_classifier_mt(classifier_name,
         from classifiers_mtl.resnet import resnet_mt_dense
         return resnet_mt_dense.Classifier_RESNET_MT_DENSE(output_directory, input_shape, nb_classes, lossf, 
                                                           gamma, epochs, batch_size, verbose)
+    if classifier_name == 'fcn_mt_test': 
+        from classifiers_mtl.fcn import fcn_mt_test
+        return fcn_mt_test.Classifier_FCN_MT_TEST(output_directory, input_shape, nb_classes, lossf, 
+                                                            gamma, epochs, batch_size, verbose)
+    
     
     if classifier_name == 'resnet_mt_sigmoid': 
         from classifiers_mtl.resnet import resnet_mt_sigmoid
