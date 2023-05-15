@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_DENSE:
+class Classifier_RESNET_MT_SIGMOID:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -29,32 +29,93 @@ class Classifier_FCN_MT_DENSE:
 
 
 	def build_model(self, input_shape, nb_classes_1):
+
+		n_feature_maps = 64
 		
 		"""
 		Main branch, shared features. 
 		"""
 		input_layer = keras.layers.Input(input_shape)
 
-		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same')(input_layer)
-		conv1 = keras.layers.BatchNormalization()(conv1)
-		conv1 = keras.layers.Activation(activation='relu')(conv1)
+		# BLOCK 1
 
-		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same')(conv1)
-		conv2 = keras.layers.BatchNormalization()(conv2)
-		conv2 = keras.layers.Activation('relu')(conv2)
+		conv_x = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=8, padding='same')(input_layer)
+		conv_x = keras.layers.BatchNormalization()(conv_x)
+		conv_x = keras.layers.Activation('relu')(conv_x)
 
-		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
-		conv3 = keras.layers.BatchNormalization()(conv3)
-		conv3 = keras.layers.Activation('relu')(conv3)
-		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
+		conv_y = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=5, padding='same')(conv_x)
+		conv_y = keras.layers.BatchNormalization()(conv_y)
+		conv_y = keras.layers.Activation('relu')(conv_y)
+
+		conv_z = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=3, padding='same')(conv_y)
+		conv_z = keras.layers.BatchNormalization()(conv_z)
+
+		# expand channels for the sum
+		shortcut_y = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=1, padding='same')(input_layer)
+		shortcut_y = keras.layers.BatchNormalization()(shortcut_y)
+
+		output_block_1 = keras.layers.add([shortcut_y, conv_z])
+		output_block_1 = keras.layers.Activation('relu')(output_block_1)
+
+		# BLOCK 2
+
+		conv_x = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=8, padding='same')(output_block_1)
+		conv_x = keras.layers.BatchNormalization()(conv_x)
+		conv_x = keras.layers.Activation('relu')(conv_x)
+
+		conv_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=5, padding='same')(conv_x)
+		conv_y = keras.layers.BatchNormalization()(conv_y)
+		conv_y = keras.layers.Activation('relu')(conv_y)
+
+		conv_z = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=3, padding='same')(conv_y)
+		conv_z = keras.layers.BatchNormalization()(conv_z)
+
+		# expand channels for the sum
+		shortcut_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=1, padding='same')(output_block_1)
+		shortcut_y = keras.layers.BatchNormalization()(shortcut_y)
+
+		output_block_2 = keras.layers.add([shortcut_y, conv_z])
+		output_block_2 = keras.layers.Activation('relu')(output_block_2)
+
+		# BLOCK 3
+
+		conv_x = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=8, padding='same')(output_block_2)
+		conv_x = keras.layers.BatchNormalization()(conv_x)
+		conv_x = keras.layers.Activation('relu')(conv_x)
+
+		conv_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=5, padding='same')(conv_x)
+		conv_y = keras.layers.BatchNormalization()(conv_y)
+		conv_y = keras.layers.Activation('relu')(conv_y)
+
+		conv_z = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=3, padding='same')(conv_y)
+		conv_z = keras.layers.BatchNormalization()(conv_z)
+
+		# no need to expand channels because they are equal
+		shortcut_y = keras.layers.BatchNormalization()(output_block_2)
+
+		output_block_3 = keras.layers.add([shortcut_y, conv_z])
+		output_block_3 = keras.layers.Activation('relu')(output_block_3)
+
+		
+		# FINAL
+
+		gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
 
 	
 		"""
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
+
+		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
+
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='sigmoid', name='task_2_output')(gap_layer)
 		#linear
+
+
+		print("SHAPE OUTPUT",output_layer_2.shape)
+
+
 		"""
 		Define model: 
 
@@ -63,11 +124,10 @@ class Classifier_FCN_MT_DENSE:
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
 		#print(model.summary())
-		#'task_2_output': 'mae'
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
+			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': self.output_2_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 
@@ -82,7 +142,7 @@ class Classifier_FCN_MT_DENSE:
 			save_best_only=True)
 		
 
-		self.callbacks = [reduce_lr,model_checkpoint] 
+		self.callbacks = [reduce_lr,model_checkpoint] #g, early_stop]
 
 		return model 
 

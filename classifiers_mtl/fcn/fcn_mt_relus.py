@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_DENSE:
+class Classifier_FCN_MT_RELUS:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -53,7 +53,16 @@ class Classifier_FCN_MT_DENSE:
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
+
+
+		#additional layers: 
+
+		dense_layer = keras.layers.Dense(64, activation='relu')(gap_layer)
+		dense_layer = keras.layers.Dropout(0.2)(dense_layer)
+		dense_layer = keras.layers.Dense(32, activation='relu')(dense_layer)
+		dense_layer = keras.layers.Dropout(0.2)(dense_layer)
+
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(dense_layer)
 		#linear
 		"""
 		Define model: 

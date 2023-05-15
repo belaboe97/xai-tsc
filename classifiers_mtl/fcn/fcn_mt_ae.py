@@ -12,12 +12,13 @@ from utils.utils import calculate_metrics
 
 class Classifier_FCN_MT_AE:
 
-	def __init__(self, output_directory, input_shape, nb_classes_1, gamma, epochs, batch_size, verbose=False, build=True):
+	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
 		self.gamma = gamma
 		self.epochs = epochs
 		self.batch_size = batch_size
 		self.latent_inputs = None
+		self.output_2_loss = lossf
 		if build == True:
 			self.model = self.build_model(input_shape, nb_classes_1)
 			if(verbose==True):
@@ -47,15 +48,15 @@ class Classifier_FCN_MT_AE:
 		
 		gap_layer = keras.layers.AveragePooling1D()(conv3)
 
-
-
-		#print("POOL size", gap_layer.shape)
-
+		
 		output_for_task_1 = keras.layers.GlobalAveragePooling1D()(gap_layer)  # alternative to GlobalAveragePooling1D
+
+		#outp = keras.layers.Flatten()(gap_layer)
+		#output_for_task_1 = keras.layers.Dense(1)(outp)
 
 		#print( keras.layers.GlobalAveragePooling1D()(conv3).shape)
 
-		"""a
+		"""
 		Decoder 
 		"""
 
@@ -64,10 +65,6 @@ class Classifier_FCN_MT_AE:
 		#dense_layer = keras.layers.Reshape((1, 128))(dense_layer)
 
 		upsample = keras.layers.UpSampling1D()(gap_layer)
-
-		#print("upsample", upsample.shape)
-		
-		#reshaped_gap_layer = keras.layers.Reshape((128,1))(gap_layer)
 
 		conv4 = keras.layers.Conv1DTranspose(filters=128, kernel_size=3, padding='same')(upsample)
 		conv4 = keras.layers.BatchNormalization()(conv4)
@@ -84,7 +81,6 @@ class Classifier_FCN_MT_AE:
 		#print("Conv6",conv6.shape)
 
 		flat_layer = keras.layers.Flatten()(conv6) 
-		#print(flat_layer.shape)
 
 		#decoder = keras.Model(decoder_input, decoder_output, name="decoder")
 
@@ -92,13 +88,7 @@ class Classifier_FCN_MT_AE:
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(output_for_task_1)
-
-		#print("INPUT SHAPE", input_shape[0],input_shape[1])
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='sigmoid', name='task_2_output')(conv6)
-
-
-		#print("SHAPE OUTPUT",output_layer_2.shape)
-
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='linear', name='task_2_output')(conv6)
 
 		"""
 		Define model: 
@@ -111,7 +101,7 @@ class Classifier_FCN_MT_AE:
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': 'mae'},
+			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': self.output_2_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 

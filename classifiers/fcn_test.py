@@ -10,7 +10,7 @@ from utils.utils import save_logs_stl
 from utils.utils import calculate_metrics
 
 
-class Classifier_FCN:
+class Classifier_FCN_TEST:
     def __init__(
         self,
         output_directory,
@@ -53,11 +53,29 @@ class Classifier_FCN:
         conv3 = keras.layers.BatchNormalization()(conv3)
         conv3 = keras.layers.Activation("relu")(conv3)
 
-        print(conv3.shape)
+        
+        #print(conv3.shape)
 
         gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
+        #flatten_layer = keras.layers.Flatten()(conv3)
 
-        print(gap_layer.shape)
+        # Reshape the output for compatibility with dense layers
+        reshaped_output = tf.keras.layers.Reshape((1, 1, -1))(gap_output)
+        
+        # Fully connected layers for generating heatmap
+        dense1 = tf.keras.layers.Dense(512, activation='relu')(reshaped_output)
+        dense2 = tf.keras.layers.Dense(256, activation='relu')(dense1)
+        heatmap_output = tf.keras.layers.Dense(1, activation='sigmoid')(dense2)
+        
+        # Soft mask multiplication
+        softmax_heatmap = tf.keras.layers.Softmax()(heatmap_output)
+        cam_output = tf.keras.layers.Multiply()([softmax_heatmap, last_conv_output])
+        
+        # Upsampling layer
+        upsampled_cam_output = tf.keras.layers.UpSampling2D(size=(32, 32), interpolation='bilinear')(cam_output)
+    
+
+        #print(gap_layer.shape)
 
         output_layer = keras.layers.Dense(
             nb_classes, activation="softmax", name="task_1_output"

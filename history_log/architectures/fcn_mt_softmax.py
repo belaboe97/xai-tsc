@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_DENSE:
+class Classifier_FCN_MT_SOFTMAX:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -53,8 +53,15 @@ class Classifier_FCN_MT_DENSE:
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
+
+		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
+
+		inter_layer_2  = keras.layers.Dense(nb_classes_1, activation='softmax')(gap_layer)
+
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='relu', name='task_2_output')(inter_layer_2)
 		#linear
+
+
 		"""
 		Define model: 
 
@@ -63,11 +70,10 @@ class Classifier_FCN_MT_DENSE:
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
 		#print(model.summary())
-		#'task_2_output': 'mae'
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
+			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': self.output_2_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 
@@ -82,7 +88,7 @@ class Classifier_FCN_MT_DENSE:
 			save_best_only=True)
 		
 
-		self.callbacks = [reduce_lr,model_checkpoint] 
+		self.callbacks = [reduce_lr,model_checkpoint] #g, early_stop]
 
 		return model 
 

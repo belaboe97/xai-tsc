@@ -12,12 +12,13 @@ from utils.utils import calculate_metrics
 
 class Classifier_FCN_MT_SIGMOID:
 
-	def __init__(self, output_directory, input_shape, nb_classes_1, gamma, epochs, batch_size, verbose=False, build=True):
+	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
 		self.gamma = gamma
 		self.epochs = epochs
 		self.batch_size = batch_size
 		self.latent_inputs = None
+		self.output_2_loss = lossf
 		if build == True:
 			self.model = self.build_model(input_shape, nb_classes_1)
 			if(verbose==True):
@@ -55,7 +56,7 @@ class Classifier_FCN_MT_SIGMOID:
 
 		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
 
-		output_layer_2 = keras.layers.Dense(units=150, activation='sigmoid', name='task_2_output')(gap_layer)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='sigmoid', name='task_2_output')(gap_layer)
 		#linear
 
 
@@ -73,7 +74,7 @@ class Classifier_FCN_MT_SIGMOID:
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': 'mae'},
+			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': self.output_2_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 

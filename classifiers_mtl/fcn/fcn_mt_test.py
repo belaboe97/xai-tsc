@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_DENSE:
+class Classifier_FCN_MT_TEST:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -46,14 +46,47 @@ class Classifier_FCN_MT_DENSE:
 		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
 		conv3 = keras.layers.BatchNormalization()(conv3)
 		conv3 = keras.layers.Activation('relu')(conv3)
-		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
 
+
+		# Reshape the output for compatibility with dense layers
+		#reshaped_output = tf.keras.layers.Reshape((1, 1, -1))(gap_layer)
+		
+		# Fully connected layers for generating heatmap
+		#RES 1
+		res1 = keras.layers.Dense(128)(conv3)
+		res1 = keras.layers.BatchNormalization()(res1)
+		res1 = keras.layers.Activation('relu')(res1)
+		
+		res1 = keras.layers.Dense(128)(res1)
+		res1 = keras.layers.BatchNormalization()(res1)
+
+		res1 = keras.layers.Add()([res1, conv3])  # Adding the residual connection
+
+		output_res_1 = keras.layers.Activation('relu')(res1)
+
+		res2 = keras.layers.Dense(128)(output_res_1)
+		res2 = keras.layers.BatchNormalization()(res2)
+		res2 = keras.layers.Activation('relu')(res2)
+		
+		res2 = keras.layers.Dense(128)(res2)
+		res2 = keras.layers.BatchNormalization()(res2)
+		res2 = keras.layers.Add()([res2, res1])
+		
+		output_res_2 = keras.layers.Activation('relu')(res2)
+
+		output_2_l = keras.layers.Flatten()(output_res_2)
+	
 	
 		"""
 		Specific Output layers: 
 		"""
+
+		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
+
+		print(gap_layer.shape)
+		print(output_2_l.shape)
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(output_2_l)
 		#linear
 		"""
 		Define model: 

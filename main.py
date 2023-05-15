@@ -25,7 +25,7 @@ if os.getenv("COLAB_RELEASE_TAG"):
 else: 
     print("Local Environment detected")
     root_dir = "G:/Meine Ablage/master thesis/code/xai-tsc"
-    EPOCHS = 1
+    EPOCHS = 3
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 
@@ -35,7 +35,10 @@ else:
 
 SEED = 0
 SLICES = 5
-DATASET_NAMES = ['GunPoint','Coffee'] # #'wafer'
+DATASET_NAMES = ['GunPoint']#'GunPoint']#'Beef','Coffee' ,'GunPoint']
+LOSSES = ['mse']#, 'cosinesim']
+DATASCALING = 'raw' #minmax
+
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -84,24 +87,25 @@ def output_path():
     return output_directory, test_dir_df_metrics
 
 
-
-
 if mode == 'singletask':
 
     output_directory, test_dir_df_metrics = output_path()
 
-    if os.path.exists(test_dir_df_metrics):
+    if False: #os.path.exists(test_dir_df_metrics):
         print('Already done')
     else:
         create_directory(output_directory)
 
+    print(output_directory)
+
     datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
     fit_classifier(classifier_name, mode, datasets_dict, None, 
-                   output_directory, gamma, EPOCHS, BATCH_SIZE)
-    att = calculate_cam_attributions(root_dir, archive_name, classifier, 
-                                           dataset_name, data_source)
-    exp = create_cam_explanations(att, minmax_norm=True)
-    save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
+                   output_directory, 'mse', gamma, EPOCHS, BATCH_SIZE)
+    
+    #att = calculate_cam_attributions(root_dir, archive_name, classifier, 
+                                          # dataset_name, data_source)
+    #exp = create_cam_explanations(att, minmax_norm=True)
+    #save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
 
 if mode == 'multitask': 
 
@@ -112,16 +116,16 @@ if mode == 'multitask':
     else:
         create_directory(output_directory)
 
-    datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
-    x,_,_,_ =  datasets_dict
-    datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, data_source, len(x[0]))[dataset_name]
-    fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
-                   output_directory, gamma, EPOCHS, BATCH_SIZE)
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
+        x,_,_,_ =  datasets_dict
+        datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, data_source, len(x[0]))[dataset_name]
+        fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
+                    output_directory, 'mse', gamma, EPOCHS, BATCH_SIZE)
 
 if mode == 'experiment_1': 
 
     archive_name = 'ucr'
-    gammas = [1.0, 0.75, 0.5, 0.25, 0.0]
+    GAMMAS = [1.0, 0.75, 0.5, 0.25, 0.0]
 
     for dataset_name in DATASET_NAMES: 
 
@@ -131,28 +135,29 @@ if mode == 'experiment_1':
             
             # TODO: for data_source in ATTRIBUTION_METHODS: // currently just minmax 
             data_source = 'original'
-            data_dest = classifier_name + "_" + 'minmax' 
+            data_dest = classifier_name + "_" + DATASCALING 
 
             gamma = 1.0
             classifier = f'{classifier_name}_{gamma}'
 
             output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}/{classifier}/{data_source}/' 
             
-            test_dir_df_metrics = output_directory + 'df_metrics.csv'
+            test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
 
             if os.path.exists(test_dir_df_metrics):
-                print('Already done')
+                print('Already done', 'Singletask')
             else:
                 create_directory(output_directory)
 
-            fit_classifier(classifier_name, 'singletask', datasets_dict, None, 
-                        output_directory, gamma, EPOCHS, BATCH_SIZE)
-            
-            att = calculate_cam_attributions(root_dir, archive_name, classifier, 
-                                                dataset_name, data_source)
-            
-            exp = create_cam_explanations(att, minmax_norm=True)
-            save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
+                fit_classifier(classifier_name, 'singletask', datasets_dict, None, 
+                            output_directory, None, gamma, EPOCHS, BATCH_SIZE)
+                            
+                
+                att = calculate_cam_attributions(root_dir, archive_name, classifier, 
+                                                    dataset_name, data_source)
+                
+                exp = create_cam_explanations(att, minmax_norm=False)
+                save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
 
 
             # assert that each x value is equally long 
@@ -168,23 +173,31 @@ if mode == 'experiment_1':
 
                     mt_classifier = mtclassifier.split('.')[0]
 
-                    for gamma in gammas:  
+                    for gamma in GAMMAS:  
                         print(mt_classifier, gamma)
                         classifier = f'{mt_classifier}_{gamma}'
 
-                        output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}' \
-                            f'/{classifier}/{data_dest}/'  
-                        
-                        if os.path.exists(test_dir_df_metrics):
-                            print('Already done')
-                        else:
-                            create_directory(output_directory)
+                        #Added support for Cosine Similarity 
+                        for loss in LOSSES: 
 
-                        fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, gamma, 
-                                    EPOCHS, BATCH_SIZE)
+                            output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}' \
+                                f'/{classifier}/{data_dest}_{loss}/'  
+                            
+                            test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
+
+                            if os.path.exists(test_dir_df_metrics):
+                                print('Already done')
+                                break
+                            else:
+                                create_directory(output_directory)
+
+                                lossf = tf.keras.losses.CosineSimilarity(axis=1) if loss == 'cosinesim' else loss
+
+                                fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, 
+                                            lossf, gamma, EPOCHS, BATCH_SIZE)
 
 
 print('DONE')
 
 # the creation of this directory means
-create_directory(output_directory + '/DONE')
+#create_directory(output_directory + '/DONE')

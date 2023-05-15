@@ -6,6 +6,9 @@ import tensorflow.keras as keras
 import sklearn
 import os
 
+def minmax_norm(ts): 
+    return (ts - np.min(ts)) / (np.max(ts) - np.min(ts))
+
 def get_layer_index(model, layer_name):
     layer_names = [layer.name for layer in model.layers]
     layer_idx = layer_names.index(layer_name)

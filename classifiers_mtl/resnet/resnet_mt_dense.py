@@ -1,180 +1,208 @@
-# resnet model 
+# FCN model
 # when tuning start with learning rate->mini_batch_size -> 
 # momentum-> #hidden_units -> # learning_rate_decay -> #layers 
 import tensorflow.keras as keras
 import tensorflow as tf
 import numpy as np
-import time
+import time 
+import os
 
-import matplotlib
-from utils.utils import save_test_duration
-
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
-
-from utils.utils import save_logs
+from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
-
 
 class Classifier_RESNET_MT_DENSE:
 
-    def __init__(self, output_directory, input_shape, nb_classes, verbose=False, build=True, load_weights=False):
-        self.output_directory = output_directory
-        if build == True:
-            self.model = self.build_model(input_shape, nb_classes)
-            if (verbose == True):
-                self.model.summary()
-            self.verbose = verbose
-            if load_weights == True:
-                self.model.load_weights(self.output_directory
-                                        .replace('resnet_augment', 'resnet')
-                                        .replace('TSC_itr_augment_x_10', 'TSC_itr_10')
-                                        + '/model_init.hdf5')
-            else:
-                self.model.save_weights(self.output_directory + 'model_init.hdf5')
-        return
+	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
+		self.output_directory = output_directory
+		self.gamma = gamma
+		self.epochs = epochs
+		self.batch_size = batch_size
+		self.latent_inputs = None
+		self.output_2_loss = lossf
+		if build == True:
+			self.model = self.build_model(input_shape, nb_classes_1)
+			if(verbose==True):
+				self.model.summary()
+			self.verbose = verbose
+			self.model.save_weights(self.output_directory+'model_init.hdf5')
+		return
 
-    def build_model(self, input_shape, nb_classes):
-        n_feature_maps = 64
 
-        input_layer = keras.layers.Input(input_shape)
+	def build_model(self, input_shape, nb_classes_1):
 
-        # BLOCK 1
+		n_feature_maps = 64
+		
+		"""
+		Main branch, shared features. 
+		"""
+		input_layer = keras.layers.Input(input_shape)
 
-        conv_x = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=8, padding='same')(input_layer)
-        conv_x = keras.layers.BatchNormalization()(conv_x)
-        conv_x = keras.layers.Activation('relu')(conv_x)
+		# BLOCK 1
 
-        conv_y = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=5, padding='same')(conv_x)
-        conv_y = keras.layers.BatchNormalization()(conv_y)
-        conv_y = keras.layers.Activation('relu')(conv_y)
+		conv_x = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=8, padding='same')(input_layer)
+		conv_x = keras.layers.BatchNormalization()(conv_x)
+		conv_x = keras.layers.Activation('relu')(conv_x)
 
-        conv_z = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=3, padding='same')(conv_y)
-        conv_z = keras.layers.BatchNormalization()(conv_z)
+		conv_y = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=5, padding='same')(conv_x)
+		conv_y = keras.layers.BatchNormalization()(conv_y)
+		conv_y = keras.layers.Activation('relu')(conv_y)
 
-        # expand channels for the sum
-        shortcut_y = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=1, padding='same')(input_layer)
-        shortcut_y = keras.layers.BatchNormalization()(shortcut_y)
+		conv_z = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=3, padding='same')(conv_y)
+		conv_z = keras.layers.BatchNormalization()(conv_z)
 
-        output_block_1 = keras.layers.add([shortcut_y, conv_z])
-        output_block_1 = keras.layers.Activation('relu')(output_block_1)
+		# expand channels for the sum
+		shortcut_y = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=1, padding='same')(input_layer)
+		shortcut_y = keras.layers.BatchNormalization()(shortcut_y)
 
-        # BLOCK 2
+		output_block_1 = keras.layers.add([shortcut_y, conv_z])
+		output_block_1 = keras.layers.Activation('relu')(output_block_1)
 
-        conv_x = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=8, padding='same')(output_block_1)
-        conv_x = keras.layers.BatchNormalization()(conv_x)
-        conv_x = keras.layers.Activation('relu')(conv_x)
+		# BLOCK 2
 
-        conv_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=5, padding='same')(conv_x)
-        conv_y = keras.layers.BatchNormalization()(conv_y)
-        conv_y = keras.layers.Activation('relu')(conv_y)
+		conv_x = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=8, padding='same')(output_block_1)
+		conv_x = keras.layers.BatchNormalization()(conv_x)
+		conv_x = keras.layers.Activation('relu')(conv_x)
 
-        conv_z = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=3, padding='same')(conv_y)
-        conv_z = keras.layers.BatchNormalization()(conv_z)
+		conv_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=5, padding='same')(conv_x)
+		conv_y = keras.layers.BatchNormalization()(conv_y)
+		conv_y = keras.layers.Activation('relu')(conv_y)
 
-        # expand channels for the sum
-        shortcut_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=1, padding='same')(output_block_1)
-        shortcut_y = keras.layers.BatchNormalization()(shortcut_y)
+		conv_z = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=3, padding='same')(conv_y)
+		conv_z = keras.layers.BatchNormalization()(conv_z)
 
-        output_block_2 = keras.layers.add([shortcut_y, conv_z])
-        output_block_2 = keras.layers.Activation('relu')(output_block_2)
+		# expand channels for the sum
+		shortcut_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=1, padding='same')(output_block_1)
+		shortcut_y = keras.layers.BatchNormalization()(shortcut_y)
 
-        # BLOCK 3
+		output_block_2 = keras.layers.add([shortcut_y, conv_z])
+		output_block_2 = keras.layers.Activation('relu')(output_block_2)
 
-        conv_x = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=8, padding='same')(output_block_2)
-        conv_x = keras.layers.BatchNormalization()(conv_x)
-        conv_x = keras.layers.Activation('relu')(conv_x)
+		# BLOCK 3
 
-        conv_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=5, padding='same')(conv_x)
-        conv_y = keras.layers.BatchNormalization()(conv_y)
-        conv_y = keras.layers.Activation('relu')(conv_y)
+		conv_x = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=8, padding='same')(output_block_2)
+		conv_x = keras.layers.BatchNormalization()(conv_x)
+		conv_x = keras.layers.Activation('relu')(conv_x)
 
-        conv_z = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=3, padding='same')(conv_y)
-        conv_z = keras.layers.BatchNormalization()(conv_z)
+		conv_y = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=5, padding='same')(conv_x)
+		conv_y = keras.layers.BatchNormalization()(conv_y)
+		conv_y = keras.layers.Activation('relu')(conv_y)
 
-        # no need to expand channels because they are equal
-        shortcut_y = keras.layers.BatchNormalization()(output_block_2)
+		conv_z = keras.layers.Conv1D(filters=n_feature_maps * 2, kernel_size=3, padding='same')(conv_y)
+		conv_z = keras.layers.BatchNormalization()(conv_z)
 
-        output_block_3 = keras.layers.add([shortcut_y, conv_z])
-        output_block_3 = keras.layers.Activation('relu')(output_block_3)
+		# no need to expand channels because they are equal
+		shortcut_y = keras.layers.BatchNormalization()(output_block_2)
 
-        # FINAL
+		output_block_3 = keras.layers.add([shortcut_y, conv_z])
+		output_block_3 = keras.layers.Activation('relu')(output_block_3)
 
-        gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
+		# FINAL
 
-        """
+		gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
+
+	
+		"""
 		Specific Output layers: 
 		"""
+		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
+		#linear
+		"""
+		Define model: 
 
-        output_layer_1 = keras.layers.Dense(nb_classes, activation='softmax', name='task_1_output')(gap_layer)
+		"""
 
-        output_layer_2 = keras.layers.Dense(units=150, activation='linear', name='task_2_output')(gap_layer)
+		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
-        model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
+		#print(model.summary())
+		#'task_2_output': 'mae'
 
-        #print(model.summary())
+		model.compile(
+			optimizer = keras.optimizers.Adam(), 
+			loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
+			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
+			metrics=['accuracy']) #mae
 
-        model.compile(
-            optimizer = keras.optimizers.Adam(), 
-            loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': 'mae'},
-            loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
-            metrics=['accuracy']) #mae
+		reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50, 
+			min_lr=0.0001)
+				
+		#early_stop = keras.callbacks.EarlyStopping(patience = 3)
 
-        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50, min_lr=0.0001)
+		file_path = self.output_directory+'best_model.hdf5'
 
-        file_path = self.output_directory + 'best_model.hdf5'
+		model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss', 
+			save_best_only=True)
+		
 
-        model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss',
-                                                           save_best_only=True)
+		self.callbacks = [reduce_lr,model_checkpoint] 
 
-        self.callbacks = [reduce_lr, model_checkpoint]
+		return model 
 
-        return model
+	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
+			
+		print("SHAPES", y_train_1.shape, y_train_2.shape)
+		"""
+				
+		if not tf.test.is_gpu_available:
+			print('error')
+			exit()
+		"""
 
-    def fit(self, x_train, y_train, x_val, y_val, y_true):
-        if not tf.test.is_gpu_available:
-            print('error')
-            exit()
-        # x_val and y_val are only used to monitor the test loss and NOT for training
-        batch_size = 64
-        nb_epochs = 1500
+		#x_val and y_val are only used to monitor the test loss and NOT for training  
 
-        mini_batch_size = int(min(x_train.shape[0] / 10, batch_size))
+		batch_size = self.batch_size
 
-        start_time = time.time()
+		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
-        hist = self.model.fit(x_train, y_train, batch_size=mini_batch_size, epochs=nb_epochs,
-                              verbose=self.verbose, validation_data=(x_val, y_val), callbacks=self.callbacks)
+		start_time = time.time() 
 
-        duration = time.time() - start_time
+		hist = self.model.fit(
+		{'input_1': x_train},
+        {'task_1_output': y_train_1, 'task_2_output': y_train_2},
+		batch_size=mini_batch_size, 
+		epochs=self.epochs,
+		verbose=self.verbose, 
+		validation_data=(
+			x_val,
+			{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
+		callbacks=self.callbacks)
+		
+		duration = time.time() - start_time
 
-        self.model.save(self.output_directory + 'last_model.hdf5')
+		self.model.save(self.output_directory+'last_model.hdf5')
+		
+		if os.getenv("COLAB_RELEASE_TAG"):
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
+		else:
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
 
-        y_pred = self.predict(x_val, y_true, x_train, y_train, y_val,
-                              return_df_metrics=False)
+		# convert the predicted from binary to integer 
+		# Multitask output 
+		y_pred = model.predict(x_val)
 
-        # save predictions
-        np.save(self.output_directory + 'y_pred.npy', y_pred)
+		#Predictions for task1 and task2
+		y_pred_1 = np.argmax(y_pred[0] , axis=1)
+		y_pred_2 = np.argmax(y_pred[1] , axis=1)
 
-        # convert the predicted from binary to integer
-        y_pred = np.argmax(y_pred, axis=1)
+		"""
+		save_logs: 
+		Calculate metrics and saves as csv. 
+		Input format: 
+		save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None)
+		"""
 
-        df_metrics = save_logs(self.output_directory, hist, y_pred, y_true, duration)
+		#print(y_pred_1.shape, y_pred_1, y_pred_2)
+		save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
 
-        keras.backend.clear_session()
+		keras.backend.clear_session()
 
-        return df_metrics
-
-    def predict(self, x_test, y_true, x_train, y_train, y_test, return_df_metrics=True):
-        start_time = time.time()
-        model_path = self.output_directory + 'best_model.hdf5'
-        model = keras.models.load_model(model_path)
-        y_pred = model.predict(x_test)
-        if return_df_metrics:
-            y_pred = np.argmax(y_pred, axis=1)
-            df_metrics = calculate_metrics(y_true, y_pred, 0.0)
-            return df_metrics
-        else:
-            test_duration = time.time() - start_time
-            save_test_duration(self.output_directory + 'test_duration.csv', test_duration)
-            return y_pred
+	def predict(self, x_test, y_true,x_train,y_train,y_test,return_df_metrics = True):
+		model_path = self.output_directory + 'best_model.hdf5'
+		model = keras.models.load_model(model_path)
+		y_pred = model.predict(x_test)
+		if return_df_metrics:
+			y_pred = np.argmax(y_pred, axis=1)
+			df_metrics = calculate_metrics(y_true, y_pred, 0.0)
+			return df_metrics
+		else:
+			return y_pred

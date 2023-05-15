@@ -6,6 +6,9 @@ __pycache__/
 #archives-ucr
 archives/ucr*
 results/*
+test_run/*
+logs/*
+test_runs/*
 
 # C extensions
 *.so
