@@ -204,7 +204,8 @@ class Classifier_FCN_MT_TEST:
 				y_train_2[idx] = cas
 				idx += 1
 
-			print(len(x_train), x_train.shape, len(y_train_1), y_train_1.shape, len(y_train_2),y_train_2.shape)
+			
+			#print(len(x_train), x_train.shape, len(y_train_1), y_train_1.shape, len(y_train_2),y_train_2.shape)
 						
 
 			

@@ -25,7 +25,7 @@ if os.getenv("COLAB_RELEASE_TAG"):
 else: 
     print("Local Environment detected")
     root_dir = "G:/Meine Ablage/master thesis/code/xai-tsc"
-    EPOCHS = 3
+    EPOCHS = 1
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 
@@ -51,14 +51,14 @@ def set_seeds(seed=SEED):
 
 
 def set_global_determinism(seed=SEED):
-    set_seeds(seed=seed)
+    """ set_seeds(seed=seed)
 
-    os.environ['TF_DETERMINISTIC_OPS'] = '1'
-    os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
-    
-    tf.config.threading.set_inter_op_parallelism_threads(1)
-    tf.config.threading.set_intra_op_parallelism_threads(1)
-
+        os.environ['TF_DETERMINISTIC_OPS'] = '1'
+        os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+        
+        #tf.config.threading.set_inter_op_parallelism_threads(1)
+        tf.config.threading.set_intra_op_parallelism_threads(1)
+    """
     print("set global determinism")
 
 
