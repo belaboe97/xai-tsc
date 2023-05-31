@@ -3,6 +3,8 @@ from utils.utils import create_directory
 from utils.utils import read_dataset
 from utils.constants import CAM_LAYERS
 import tensorflow.keras as keras
+from keras.utils import CustomObjectScope
+import tensorflow_addons as tfa
 import sklearn
 import os
 
@@ -68,6 +70,96 @@ def calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name,
     return output
 
 
+
+import tensorflow as tf 
+def interpolate_series(baseline,
+                       series,
+                       alphas):
+  alphas_x = alphas[:,tf.newaxis]
+  baseline_x = tf.expand_dims(baseline, axis=0)
+  input_x = tf.expand_dims(series, axis=0)
+  delta = tf.expand_dims((series - baseline),axis=0)
+  series = baseline_x +  alphas_x * delta
+  return series
+
+def compute_gradients(series,model,task):
+  with tf.GradientTape() as tape:
+    tape.watch(series)
+    logits = model(series)[task]
+    logits = logits
+    print("LOgits",logits)
+  return tape.gradient(logits, series)
+
+def integral_approximation(gradients):
+  # riemann_trapezoidal
+  grads = (gradients[:-1] + gradients[1:]) / tf.constant(2.0)
+  integrated_gradients = tf.math.reduce_mean(grads, axis=0)
+  return integrated_gradients
+
+@tf.function
+def integrated_gradients(model,
+                         baseline,
+                         series,
+                         m_steps=50,
+                         batch_size=32,
+                         task = 1):
+  # 1. Generate alphas.
+  alphas = tf.linspace(start=0.0, stop=1.0, num=m_steps+1)
+
+  # Initialize TensorArray outside loop to collect gradients.    
+  gradient_batches = tf.TensorArray(tf.float32, size=m_steps+1)
+
+  # Iterate alphas range and batch computation for speed, memory efficiency, and scaling to larger m_steps.
+  for alpha in tf.range(0, len(alphas), batch_size):
+    from_ = alpha
+    to = tf.minimum(from_ + batch_size, len(alphas))
+    alpha_batch = alphas[from_:to]
+
+    # 2. Generate interpolated inputs between baseline and input.
+    interpolated_path_input_batch = interpolate_series(baseline=baseline,
+                                                       series=series,
+                                                       alphas=alpha_batch)
+
+    # 3. Compute gradients between model outputs and interpolated inputs.
+    gradient_batch = compute_gradients(series=interpolated_path_input_batch,model=model,task=task)
+
+    # Write batch indices and gradients to extend TensorArray.
+    gradient_batches = gradient_batches.scatter(tf.range(from_, to), gradient_batch)    
+
+  # Stack path gradients together row-wise into single tensor.
+  total_gradients = gradient_batches.stack()
+
+  # 4. Integral approximation through averaging gradients.
+  avg_gradients = integral_approximation(gradients=total_gradients)
+
+  # 5. Scale integrated gradients with respect to input.
+  integrated_gradients = (series - baseline) * avg_gradients
+
+  return integrated_gradients
+
+
+def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, data_source): 
+    with CustomObjectScope({'InstanceNormalization':tfa.layers.InstanceNormalization()}):
+        model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                        + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
+                                        + f'last_model.hdf5'
+        model =keras.models.load_model(model_path ,compile=False)
+    datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)
+    x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
+
+    output = list()
+    baseline = baseline = tf.zeros(len(x_train[0]))
+    for x_vals,y_vals in [[x_train,y_train],[x_test,y_test]]:
+        attr = list()
+        for idx,ts in enumerate(x_vals):
+            series = ts
+            ig_att = integrated_gradients(model,baseline,series.astype('float32'),task=0)
+
+            attr.append([y_vals[idx],x_vals[idx],ig_att])
+        output.append(attr)
+    return output
+
+    
 def create_cam_explanations(attributions, minmax_norm = False):
     output = []
     for split in attributions:
