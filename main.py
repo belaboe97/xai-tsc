@@ -104,7 +104,8 @@ if mode == 'singletask':
                    output_directory, 'mse', gamma, EPOCHS, BATCH_SIZE)
     
     att = calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, data_source)
-    #calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name, data_source)
+    
+    #att = calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name, data_source)
     exp = create_cam_explanations(att, minmax_norm=False)
     save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
 

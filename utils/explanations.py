@@ -82,13 +82,17 @@ def interpolate_series(baseline,
   series = baseline_x +  alphas_x * delta
   return series
 
-def compute_gradients(series,model,task):
+def compute_gradients(series,model,target_class_idx,task=0):
   with tf.GradientTape() as tape:
     tape.watch(series)
-    logits = model(series)[task]
-    logits = logits
-    print("LOgits",logits)
+    logits = model(series)#[1]
+    target_class_idx = int(target_class_idx[0])
+    logits = logits[:,target_class_idx]
+    #probs = tf.nn.softmax(logits,axis=-1)[:,target_class_idx]
+    #tf.print(probs.shape)
   return tape.gradient(logits, series)
+
+
 
 def integral_approximation(gradients):
   # riemann_trapezoidal
@@ -100,9 +104,10 @@ def integral_approximation(gradients):
 def integrated_gradients(model,
                          baseline,
                          series,
+                         target_class,
                          m_steps=50,
                          batch_size=32,
-                         task = 1):
+                         task = 0):
   # 1. Generate alphas.
   alphas = tf.linspace(start=0.0, stop=1.0, num=m_steps+1)
 
@@ -121,7 +126,10 @@ def integrated_gradients(model,
                                                        alphas=alpha_batch)
 
     # 3. Compute gradients between model outputs and interpolated inputs.
-    gradient_batch = compute_gradients(series=interpolated_path_input_batch,model=model,task=task)
+    gradient_batch = compute_gradients(series=interpolated_path_input_batch,
+                                       model=model,
+                                       target_class_idx=target_class,
+                                       task=task)
 
     # Write batch indices and gradients to extend TensorArray.
     gradient_batches = gradient_batches.scatter(tf.range(from_, to), gradient_batch)    
@@ -153,7 +161,7 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, 
         attr = list()
         for idx,ts in enumerate(x_vals):
             series = ts
-            ig_att = integrated_gradients(model,baseline,series.astype('float32'),task=0)
+            ig_att = integrated_gradients(model,baseline,series.astype('float32'),y_vals[idx]-1,task=0)
 
             attr.append([y_vals[idx],x_vals[idx],ig_att])
         output.append(attr)

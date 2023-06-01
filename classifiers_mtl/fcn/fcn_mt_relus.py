@@ -56,13 +56,14 @@ class Classifier_FCN_MT_RELUS:
 
 
 		#additional layers: 
-
+		"""
 		dense_layer = keras.layers.Dense(64, activation='relu')(gap_layer)
 		dense_layer = keras.layers.Dropout(0.2)(dense_layer)
 		dense_layer = keras.layers.Dense(32, activation='relu')(dense_layer)
 		dense_layer = keras.layers.Dropout(0.2)(dense_layer)
-
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(dense_layer)
+		"""
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=2, padding='same', activation = keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(conv3)
+		#output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=2, padding='same', activation='linear', name='task_2_output')(conv3)
 		#linear
 		"""
 		Define model: 

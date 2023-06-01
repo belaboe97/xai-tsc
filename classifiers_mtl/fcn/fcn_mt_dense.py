@@ -48,12 +48,13 @@ class Classifier_FCN_MT_DENSE:
 		conv3 = keras.layers.Activation('relu')(conv3)
 		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
 
+		flatten_layer = keras.layers.Flatten()(conv3)
 	
 		"""
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(flatten_layer)
 		#linear
 		"""
 		Define model: 

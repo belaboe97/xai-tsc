@@ -98,7 +98,7 @@ class Classifier_RESNET_MT_SIGMOID:
 
 		
 		# FINAL
-
+		flatten_layer =  keras.layers.Flatten()(output_block_3)
 		gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
 
 	
@@ -109,7 +109,8 @@ class Classifier_RESNET_MT_SIGMOID:
 
 		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
 
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='sigmoid', name='task_2_output')(gap_layer)
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=3, padding='same', activation = keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(output_block_3)
+		#keras.layers.Dense(units=input_shape[0], activation=keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(flatten_layer)
 		#linear
 
 

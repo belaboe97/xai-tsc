@@ -46,6 +46,8 @@ class Classifier_FCN_MT_SIGMOID:
 		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
 		conv3 = keras.layers.BatchNormalization()(conv3)
 		conv3 = keras.layers.Activation('relu')(conv3)
+
+		flatten_layer = keras.layers.Flatten()(conv3)
 		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
 
 	
@@ -56,7 +58,7 @@ class Classifier_FCN_MT_SIGMOID:
 
 		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
 
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='sigmoid', name='task_2_output')(gap_layer)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='sigmoid', name='task_2_output')(flatten_layer)
 		#linear
 
 

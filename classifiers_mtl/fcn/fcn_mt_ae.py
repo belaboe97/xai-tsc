@@ -59,7 +59,6 @@ class Classifier_FCN_MT_AE:
 		"""
 		Decoder 
 		"""
-
 		#latent_inputs = keras.layers.Input(gap_layer.shape[-1])
 		#dense_layer = keras.layers.Dense(128, activation='relu')(gap_layer)
 		#dense_layer = keras.layers.Reshape((1, 128))(dense_layer)
@@ -88,7 +87,15 @@ class Classifier_FCN_MT_AE:
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(output_for_task_1)
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='linear', name='task_2_output')(conv6)
+		
+
+		#flatten_layer = keras.layers.Flatten()(conv6)
+		#auxiliary_input = keras.layers.Concatenate()([flatten_layer, output_layer_1])
+
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=4, padding='same', activation='linear', name='task_2_output')(conv6)
+
+		#
+		# output_layer_2 = keras.layers.Dense(units=input_shape[1], activation='relu', name='task_2_output')(auxiliary_input)
 
 		"""
 		Define model: 
