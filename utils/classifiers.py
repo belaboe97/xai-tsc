@@ -28,7 +28,7 @@ def set_global_determinism(seed=SEED):
 
 
 def create_classifier(classifier_name, input_shape, nb_classes, output_directory, epochs, batch_size, verbose=True):
-    set_global_determinism(0)
+    #set_global_determinism(0)
     if classifier_name == 'fcn':
         from classifiers import fcn
         return fcn.Classifier_FCN(output_directory, input_shape, nb_classes, epochs, batch_size,  verbose)
@@ -48,22 +48,22 @@ def create_classifier_mt(classifier_name,
                          output_directory, gamma, 
                          epochs, batch_size,
                          verbose=False):
-    set_global_determinism(0)
+    #set_global_determinism(0)
     if classifier_name == 'fcn_mt_ae': 
         from classifiers_mtl.fcn import fcn_mt_ae
         return fcn_mt_ae.Classifier_FCN_MT_AE(output_directory, input_shape, nb_classes, lossf,
                                               gamma, epochs, batch_size, verbose)
-    if classifier_name == 'fcn_mt_dense': 
-        from classifiers_mtl.fcn import fcn_mt_dense
-        return fcn_mt_dense.Classifier_FCN_MT_DENSE(output_directory, input_shape, nb_classes, lossf,
+    if classifier_name == 'fcn_mt_linear': 
+        from classifiers_mtl.fcn import fcn_mt_linear
+        return fcn_mt_linear.Classifier_FCN_MT_Linear(output_directory, input_shape, nb_classes, lossf,
                                                     gamma, epochs, batch_size, verbose)
-    if classifier_name == 'fcn_mt_sigmoid': 
-        from classifiers_mtl.fcn import fcn_mt_sigmoid
-        return fcn_mt_sigmoid.Classifier_FCN_MT_SIGMOID(output_directory, input_shape, nb_classes, lossf,
+    if classifier_name == 'fcn_mt_conv': 
+        from classifiers_mtl.fcn import fcn_mt_conv
+        return fcn_mt_conv.Classifier_FCN_MT_CONV(output_directory, input_shape, nb_classes, lossf,
                                                         gamma, epochs, batch_size, verbose)
-    if classifier_name == 'fcn_mt_relus': 
-        from classifiers_mtl.fcn import fcn_mt_relus
-        return fcn_mt_relus.Classifier_FCN_MT_RELUS(output_directory, input_shape, nb_classes, lossf,
+    if classifier_name == 'fcn_mt_relu': 
+        from classifiers_mtl.fcn import fcn_mt_relu
+        return fcn_mt_relu.Classifier_FCN_MT_RELUS(output_directory, input_shape, nb_classes, lossf,
                                                         gamma, epochs, batch_size, verbose)
 
     if classifier_name == 'resnet_mt_dense': 
@@ -84,7 +84,7 @@ def create_classifier_mt(classifier_name,
 def fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
                    output_directory, lossf, gamma, epochs, batch_size):
     
-    set_global_determinism(0)
+    #set_global_determinism(0)
     x_train, y_train, x_test, y_test = datasets_dict
 
     nb_classes = len(np.unique(np.concatenate((y_train, y_test), axis=0)))

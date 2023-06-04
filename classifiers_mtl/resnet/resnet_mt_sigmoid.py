@@ -109,7 +109,7 @@ class Classifier_RESNET_MT_SIGMOID:
 
 		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
 
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=3, padding='same', activation = keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(output_block_3)
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation = "linear", name='task_2_output')(output_block_3)
 		#keras.layers.Dense(units=input_shape[0], activation=keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(flatten_layer)
 		#linear
 
@@ -165,6 +165,7 @@ class Classifier_RESNET_MT_SIGMOID:
 
 		start_time = time.time() 
 
+		
 		hist = self.model.fit(
 		{'input_1': x_train},
         {'task_1_output': y_train_1, 'task_2_output': y_train_2},
@@ -177,9 +178,9 @@ class Classifier_RESNET_MT_SIGMOID:
 		callbacks=self.callbacks)
 		
 		duration = time.time() - start_time
-
+		"""
 		self.model.save(self.output_directory+'last_model.hdf5')
-		
+		"""
 		if os.getenv("COLAB_RELEASE_TAG"):
 			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
 		else:
@@ -192,13 +193,6 @@ class Classifier_RESNET_MT_SIGMOID:
 		#Predictions for task1 and task2
 		y_pred_1 = np.argmax(y_pred[0] , axis=1)
 		y_pred_2 = np.argmax(y_pred[1] , axis=1)
-
-		"""
-		save_logs: 
-		Calculate metrics and saves as csv. 
-		Input format: 
-		save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None)
-		"""
 
 		#print(y_pred_1.shape, y_pred_1, y_pred_2)
 		save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
@@ -215,3 +209,56 @@ class Classifier_RESNET_MT_SIGMOID:
 			return df_metrics
 		else:
 			return y_pred
+	
+		"""
+		hist = self.model.fit(
+		{'input_1': x_train},
+        {'task_1_output': y_train_1, 'task_2_output': y_train_2},
+		batch_size=mini_batch_size, 
+		epochs=self.epochs,
+		verbose=self.verbose, 
+		validation_data=(
+			x_val,
+			{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
+		callbacks=self.callbacks)
+		
+		duration = time.time() - start_time
+		"""
+		self.model.save(self.output_directory+'last_model.hdf5')
+		"""
+		if os.getenv("COLAB_RELEASE_TAG"):
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
+		else:
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
+
+		# convert the predicted from binary to integer 
+		# Multitask output 
+		y_pred = model.predict(x_val)
+
+		#Predictions for task1 and task2
+		y_pred_1 = np.argmax(y_pred[0] , axis=1)
+		y_pred_2 = np.argmax(y_pred[1] , axis=1)
+
+		
+		save_logs: 
+		Calculate metrics and saves as csv. 
+		Input format: 
+		save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None)
+		
+
+		#print(y_pred_1.shape, y_pred_1, y_pred_2)
+		save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
+
+		keras.backend.clear_session()
+
+	def predict(self, x_test, y_true,x_train,y_train,y_test,return_df_metrics = True):
+		model_path = self.output_directory + 'best_model.hdf5'
+		model = keras.models.load_model(model_path)
+		y_pred = model.predict(x_test)
+		if return_df_metrics:
+			y_pred = np.argmax(y_pred, axis=1)
+			df_metrics = calculate_metrics(y_true, y_pred, 0.0)
+			return df_metrics
+		else:
+			return y_pred
+	"""

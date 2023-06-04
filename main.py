@@ -36,7 +36,7 @@ else:
 
 SEED = 0
 SLICES = 5
-DATASET_NAMES = ['GunPoint']#'GunPoint']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['Meat']#'Coffee', 'Meat']#'GunPoint']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'raw' #minmax
 
@@ -63,7 +63,7 @@ def set_global_determinism(seed=SEED):
     print("set global determinism")
 
 
-set_global_determinism(SEED)
+#set_global_determinism(SEED)
 
 #ARGS  
 mode = sys.argv[1]
@@ -77,6 +77,10 @@ if mode == 'singletask' or mode == 'multitask':
     gamma = 0.5 if sys.argv[8] == None else sys.argv[8]
     gamma = np.float64(gamma)
     classifier = classifier_name + '_' + str(gamma) 
+
+if mode == "experiment_0":
+    classifier_name = sys.argv[2]
+    classifier = classifier_name + '_' + "1c"
 
 
 
@@ -103,11 +107,15 @@ if mode == 'singletask':
     fit_classifier(classifier_name, mode, datasets_dict, None, 
                    output_directory, 'mse', gamma, EPOCHS, BATCH_SIZE)
     
+    #Integrated Gradients
     att = calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, data_source)
-    
-    #att = calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name, data_source)
     exp = create_cam_explanations(att, minmax_norm=False)
-    save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
+    save_explanations(exp, root_dir, archive_name, 'fcn_ig_raw', dataset_name)
+    
+    #Class Activation Mapping
+    att = calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name, data_source)
+    exp = create_cam_explanations(att, minmax_norm=False)
+    save_explanations(exp, root_dir, archive_name, 'fcn_cam_raw', dataset_name)
 
 if mode == 'multitask': 
 
@@ -122,7 +130,56 @@ if mode == 'multitask':
         x,_,_,_ =  datasets_dict
         datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, data_source, len(x[0]))[dataset_name]
         fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
-                    output_directory, 'mse', gamma, EPOCHS, BATCH_SIZE)
+                    output_directory,  'mse', gamma, EPOCHS, BATCH_SIZE) #mse #tf.keras.losses.CosineSimilarity(axis=1)
+        
+
+if mode == 'experiment_0': 
+
+    archive_name  = 'ucr'
+
+    explanation_type = "resnet_cam_raw"
+    
+    for dataset_name in DATASET_NAMES: 
+        xtr,ytr,xte,yte = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
+        print(np.unique(ytr))
+        for c in np.unique(ytr): 
+            
+            ytr_ind = np.where(ytr==c)[0]
+            yte_ind = np.where(yte==c)[0]
+            #print(ytr_ind,xtr[ytr_ind].shape)
+
+
+            class_dataset_1 = [xtr[ytr_ind],ytr[ytr_ind],xte[yte_ind],yte[yte_ind]]
+
+            ylen = len(xtr[0])
+
+            xtre,ytre,xtee,ytee = read_dataset(root_dir, archive_name, dataset_name, explanation_type, ylen)[dataset_name]
+            explanation_dataset_2 = [xtre[ytr_ind],ytre[ytr_ind],xtee[yte_ind],ytee[yte_ind]]
+            
+
+            mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
+
+            for mtclassifier in ["resnet_mt_dense","resnet_mt_sigmoid"]: #"fcn_mt_ae",
+            #os.listdir(mtc_path):
+
+                mt_classifier = mtclassifier
+                #mtclassifier.split('.')[0]
+
+                print(mt_classifier)
+                
+                output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}' \
+                f'/{mt_classifier}/{explanation_type}_{c}_{EPOCHS}/'  
+
+                create_directory(output_directory)
+
+                test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
+
+                create_directory(output_directory)
+
+                fit_classifier(mt_classifier, 'multitask', class_dataset_1, explanation_dataset_2, output_directory, 
+                'mse', 0.0 , EPOCHS, BATCH_SIZE)
+
+
 
 if mode == 'experiment_1': 
 

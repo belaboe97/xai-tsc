@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_SIGMOID:
+class Classifier_FCN_MT_CONV:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -43,22 +43,24 @@ class Classifier_FCN_MT_SIGMOID:
 		conv2 = keras.layers.BatchNormalization()(conv2)
 		conv2 = keras.layers.Activation('relu')(conv2)
 
-		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
+		conv3 = keras.layers.Conv1D(filters=128, kernel_size=3,padding='same')(conv2)
 		conv3 = keras.layers.BatchNormalization()(conv3)
 		conv3 = keras.layers.Activation('relu')(conv3)
 
-		flatten_layer = keras.layers.Flatten()(conv3)
 		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
 
+
+		conv3 = keras.layers.Conv1D(filters=128, kernel_size=3,padding='same')(conv2)
+		conv3 = keras.layers.BatchNormalization()(conv3)
+		conv3 = keras.layers.Activation('relu')(conv3)
 	
 		"""
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
-		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
-
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='sigmoid', name='task_2_output')(flatten_layer)
+		output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
+		#keras.layers.LeakyReLU(alpha=0.01)
 		#linear
 
 
@@ -72,7 +74,6 @@ class Classifier_FCN_MT_SIGMOID:
 
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
-		#print(model.summary())
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
@@ -113,6 +114,8 @@ class Classifier_FCN_MT_SIGMOID:
 
 		start_time = time.time() 
 
+	
+		
 		hist = self.model.fit(
 		{'input_1': x_train},
         {'task_1_output': y_train_1, 'task_2_output': y_train_2},
@@ -123,6 +126,7 @@ class Classifier_FCN_MT_SIGMOID:
 			x_val,
 			{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
 		callbacks=self.callbacks)
+
 		
 		duration = time.time() - start_time
 

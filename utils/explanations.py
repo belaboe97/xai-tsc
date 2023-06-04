@@ -54,7 +54,8 @@ def calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name,
     new_output_layer = [model.layers[gap].output, model.layers[out].output]
     new_feed_forward = keras.backend.function(new_input_layer, new_output_layer)
     output = []
-
+    
+    y_pos = list(np.unique(y_train))
     # Calculate classwise attribution gap to output
     for orgx_vals,x_vals,y_vals in [[orgx_train,x_train,y_train],[orgx_test,x_test,y_test]]:
         attr = list()
@@ -62,8 +63,7 @@ def calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name,
             ts = ts.reshape(1, -1, 1)
             [conv_out, predicted] = new_feed_forward([ts])
             cas = np.zeros(dtype=np.float64, shape=(conv_out.shape[1]))
-
-            for k, w in enumerate(w_k_c[:,int(y_vals[idx]-1)]):
+            for k, w in enumerate(w_k_c[:,y_pos.index(y_vals[idx])]): #np.argmax(predicted)
                 cas += w * conv_out[0, :, k] 
             attr.append([y_vals[idx],orgx_vals[idx],cas])
         output.append(attr)
@@ -86,12 +86,14 @@ def compute_gradients(series,model,target_class_idx,task=0):
   with tf.GradientTape() as tape:
     tape.watch(series)
     logits = model(series)#[1]
-    target_class_idx = int(target_class_idx[0])
-    logits = logits[:,target_class_idx]
+    
+    #tf.print(tf.math.argmax(logits))
+    #int(target_class_idx[0])
+    #predicted = np.expand_dims(np.argmax(model(x),axis=1),axis=1)
+    logits = logits[:,target_class_idx]#tf.math.argmax(logits)]#target_class_idx]
     #probs = tf.nn.softmax(logits,axis=-1)[:,target_class_idx]
     #tf.print(probs.shape)
   return tape.gradient(logits, series)
-
 
 
 def integral_approximation(gradients):
@@ -146,22 +148,28 @@ def integrated_gradients(model,
   return integrated_gradients
 
 
-def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, data_source): 
+def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, data_source, datasets_dict = None): 
     with CustomObjectScope({'InstanceNormalization':tfa.layers.InstanceNormalization()}):
         model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
                                         + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
                                         + f'last_model.hdf5'
         model =keras.models.load_model(model_path ,compile=False)
-    datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)
-    x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
+
+    if datasets_dict == None: 
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)
+        x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
+    
+    else: 
+        x_train, y_train, x_test, y_test = datasets_dict
 
     output = list()
     baseline = baseline = tf.zeros(len(x_train[0]))
+    y_pos = list(np.unique(y_train))
     for x_vals,y_vals in [[x_train,y_train],[x_test,y_test]]:
         attr = list()
         for idx,ts in enumerate(x_vals):
             series = ts
-            ig_att = integrated_gradients(model,baseline,series.astype('float32'),y_vals[idx]-1,task=0)
+            ig_att = integrated_gradients(model,baseline,series.astype('float32'),y_pos.index(y_vals[idx]),task=0)
 
             attr.append([y_vals[idx],x_vals[idx],ig_att])
         output.append(attr)
