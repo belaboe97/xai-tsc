@@ -85,14 +85,11 @@ def interpolate_series(baseline,
 def compute_gradients(series,model,target_class_idx,task=0):
   with tf.GradientTape() as tape:
     tape.watch(series)
-    logits = model(series)#[1]
-    
-    #tf.print(tf.math.argmax(logits))
-    #int(target_class_idx[0])
-    #predicted = np.expand_dims(np.argmax(model(x),axis=1),axis=1)
-    logits = logits[:,target_class_idx]#tf.math.argmax(logits)]#target_class_idx]
-    #probs = tf.nn.softmax(logits,axis=-1)[:,target_class_idx]
-    #tf.print(probs.shape)
+    if task == 0: 
+        logits = model(series)[0]
+        logits = logits[:,target_class_idx]
+    else: 
+        logits = model(series)[1]
   return tape.gradient(logits, series)
 
 
@@ -148,7 +145,9 @@ def integrated_gradients(model,
   return integrated_gradients
 
 
-def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, data_source, datasets_dict = None): 
+def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, 
+                              data_source, datasets_dict = None, task=0):
+     
     with CustomObjectScope({'InstanceNormalization':tfa.layers.InstanceNormalization()}):
         model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
                                         + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
@@ -169,14 +168,16 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, 
         attr = list()
         for idx,ts in enumerate(x_vals):
             series = ts
-            ig_att = integrated_gradients(model,baseline,series.astype('float32'),y_pos.index(y_vals[idx]),task=0)
-
+            ig_att = integrated_gradients(model,baseline,series.astype('float32'),
+                                        y_pos.index(y_vals[idx]),
+                                        task=0)
+                
             attr.append([y_vals[idx],x_vals[idx],ig_att])
         output.append(attr)
     return output
 
     
-def create_cam_explanations(attributions, minmax_norm = False):
+def create_explanations(attributions, minmax_norm = False):
     output = []
     for split in attributions:
         explanations = []
