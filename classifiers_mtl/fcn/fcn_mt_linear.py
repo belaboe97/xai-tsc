@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_AE:
+class Classifier_FCN_MT_Linear:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -29,6 +29,7 @@ class Classifier_FCN_MT_AE:
 
 
 	def build_model(self, input_shape, nb_classes_1):
+		
 		"""
 		Main branch, shared features. 
 		"""
@@ -42,44 +43,33 @@ class Classifier_FCN_MT_AE:
 		conv2 = keras.layers.BatchNormalization()(conv2)
 		conv2 = keras.layers.Activation('relu')(conv2)
 
-		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
+		conv3 = keras.layers.Conv1D(filters=128, kernel_size=3,padding='same')(conv2)
 		conv3 = keras.layers.BatchNormalization()(conv3)
 		conv3 = keras.layers.Activation('relu')(conv3)
-		
-		#gap_layer = keras.layers.AveragePooling1D()(conv3)
 
-		output_for_task_1 = keras.layers.GlobalAveragePooling1D()(conv3)  # alternative to GlobalAveragePooling1D
+		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
 
-		conv4 = keras.layers.Conv1DTranspose(filters=128, kernel_size=3, padding='same')(conv3)
-		conv4 = keras.layers.BatchNormalization()(conv4)
-		conv4 = keras.layers.Activation('relu')(conv4)
-
-		conv5 = keras.layers.Conv1DTranspose(filters=256, kernel_size=5, padding='same')(conv4)
-		conv5 = keras.layers.BatchNormalization()(conv5)
-		conv5 = keras.layers.Activation('relu')(conv5)
-
-		conv6 = keras.layers.Conv1DTranspose(filters=128, kernel_size=8, padding='same')(conv5)
-		conv6 = keras.layers.BatchNormalization()(conv6)
-		conv6 = keras.layers.Activation('relu')(conv6)
-
-		#print("Conv6",conv6.shape)
-
-		flat_layer = keras.layers.Flatten()(conv6) 
-
-		#decoder = keras.Model(decoder_input, decoder_output, name="decoder")
-
+	
 		"""
 		Specific Output layers: 
 		"""
-		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(output_for_task_1)
+		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear', name='task_2_output')(conv6)
+		flatten = keras.layers.Flatten()(conv3)
 
-		#output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear', name='task_2_output')(conv6)
+		output_layer_2 = keras.layers.Dense(input_shape[0], activation="linear",name='task_2_output')(flatten)
+		#keras.layers.LeakyReLU(alpha=0.01)
+
+		print("SHAPE OUTPUT",output_layer_2.shape)
+
+
+		"""
+		Define model: 
+
+		"""
 
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
-		#print(model.summary())
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
@@ -94,16 +84,24 @@ class Classifier_FCN_MT_AE:
 
 		file_path = self.output_directory+'best_model.hdf5'
 
-		model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss', save_best_only=True)
+		model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss', 
+			save_best_only=True)
 		
+
 		self.callbacks = [reduce_lr,model_checkpoint] #g, early_stop]
 
 		return model 
 
+
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
 			
 		print("SHAPES", y_train_1.shape, y_train_2.shape)
-	
+		"""
+				
+		if not tf.test.is_gpu_available:
+			print('error')
+			exit()
+		"""
 
 		#x_val and y_val are only used to monitor the test loss and NOT for training  
 
@@ -129,7 +127,7 @@ class Classifier_FCN_MT_AE:
 		self.model.save(self.output_directory+'last_model.hdf5')
 		
 		if os.getenv("COLAB_RELEASE_TAG"):
-			model = keras.models.load_model(self.output_directory+'best_model.hdf5')
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
 		else:
 			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
 

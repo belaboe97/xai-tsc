@@ -8,7 +8,8 @@ import sklearn
 from utils.constants import CLASSIFIERS
 from utils.constants import ITERATIONS
 from utils.explanations import calculate_cam_attributions
-from utils.explanations import create_cam_explanations
+from utils.explanations import calculate_ig_attributions
+from utils.explanations import create_explanations
 from utils.explanations import save_explanations
 import tensorflow as tf
 from utils.classifiers import fit_classifier
@@ -25,7 +26,7 @@ if os.getenv("COLAB_RELEASE_TAG"):
 else: 
     print("Local Environment detected")
     root_dir = "G:/Meine Ablage/master thesis/code/xai-tsc"
-    EPOCHS = 3
+    EPOCHS = 2
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 
@@ -34,11 +35,10 @@ else:
 
 
 SEED = 0
-SLICES = 5
-DATASET_NAMES = ['GunPoint']#'GunPoint']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['Beef' ]#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'raw' #minmax
-
+ITERATIONS = 7
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -51,18 +51,18 @@ def set_seeds(seed=SEED):
 
 
 def set_global_determinism(seed=SEED):
-    set_seeds(seed=seed)
+    """ set_seeds(seed=seed)
 
-    os.environ['TF_DETERMINISTIC_OPS'] = '1'
-    os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
-    
-    tf.config.threading.set_inter_op_parallelism_threads(1)
-    tf.config.threading.set_intra_op_parallelism_threads(1)
-
+        os.environ['TF_DETERMINISTIC_OPS'] = '1'
+        os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+        
+        #tf.config.threading.set_inter_op_parallelism_threads(1)
+        tf.config.threading.set_intra_op_parallelism_threads(1)
+    """
     print("set global determinism")
 
 
-set_global_determinism(SEED)
+#set_global_determinism(SEED)
 
 #ARGS  
 mode = sys.argv[1]
@@ -78,7 +78,6 @@ if mode == 'singletask' or mode == 'multitask':
     classifier = classifier_name + '_' + str(gamma) 
 
 
-
 def output_path():
     output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name.split("_")[0]}/{classifier}/{data_source}/' 
     test_dir_df_metrics = output_directory + 'df_metrics.csv'
@@ -91,7 +90,7 @@ if mode == 'singletask':
 
     output_directory, test_dir_df_metrics = output_path()
 
-    if False: #os.path.exists(test_dir_df_metrics):
+    if False:#os.path.exists(test_dir_df_metrics):
         print('Already done')
     else:
         create_directory(output_directory)
@@ -102,10 +101,15 @@ if mode == 'singletask':
     fit_classifier(classifier_name, mode, datasets_dict, None, 
                    output_directory, 'mse', gamma, EPOCHS, BATCH_SIZE)
     
-    #att = calculate_cam_attributions(root_dir, archive_name, classifier, 
-                                          # dataset_name, data_source)
-    #exp = create_cam_explanations(att, minmax_norm=True)
-    #save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
+    #Integrated Gradients
+    att = calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, data_source)
+    exp = create_explanations(att, minmax_norm=False)
+    save_explanations(exp, root_dir, archive_name, 'fcn_ig_raw', dataset_name)
+    
+    #Class Activation Mapping
+    att = calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name, data_source)
+    exp = create_explanations(att, minmax_norm=False)
+    save_explanations(exp, root_dir, archive_name, 'fcn_cam_raw', dataset_name)
 
 if mode == 'multitask': 
 
@@ -120,84 +124,260 @@ if mode == 'multitask':
         x,_,_,_ =  datasets_dict
         datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, data_source, len(x[0]))[dataset_name]
         fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
-                    output_directory, 'mse', gamma, EPOCHS, BATCH_SIZE)
+                    output_directory,  'mse', gamma, EPOCHS, BATCH_SIZE) #mse #tf.keras.losses.CosineSimilarity(axis=1)
+        
 
+#Singletask
 if mode == 'experiment_1': 
 
+    archive_name  = 'ucr'
+
+    for dataset_name in DATASET_NAMES: 
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
+
+
+        for classifier_name in CLASSIFIERS:
+            
+            print("Classifier",classifier_name)
+        
+            best_acc = 0 
+            best_model = 0
+            
+            for itr in range(ITERATIONS): 
+
+                output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                    f'/experiment_1/{classifier_name}/{classifier_name}_{itr}/original/'  
+                
+                test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
+
+                if os.path.exists(test_dir_df_metrics):
+                    print('Already done')
+                else:
+                    create_directory(output_directory)
+                
+                    create_directory(output_directory)
+
+                    acc = fit_classifier(classifier_name, 'singletask', datasets_dict, None, 
+                                output_directory, None, 1, EPOCHS, BATCH_SIZE)
+                    print(acc)
+                    if best_acc < acc: best_acc = acc; best_model = itr
+
+            best_classifier = f'{classifier_name}_{best_model}'
+
+
+            att = calculate_cam_attributions(root_dir, archive_name, best_classifier, 
+                                            dataset_name, 'original')
+            
+            exp = create_explanations(att, minmax_norm=False)
+            save_explanations(exp, root_dir, archive_name, f'{classifier_name}_cam_raw', dataset_name)
+
+            #Create Integrated Gradients Explanations
+            #testing purpse
+            best_classifier = f'{classifier_name}_{1}'
+            att = calculate_ig_attributions(root_dir, archive_name, best_classifier, 
+                                            dataset_name, 'original', task=0)
+            exp = create_explanations(att, minmax_norm=False)
+            save_explanations(exp, root_dir, archive_name, f'{classifier_name}_ig_raw', dataset_name)
+        
+            
+        
+            mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
+
+            for expl_type in ['fcn_ig_raw','resnet_ig_raw',]:#,'fcn_cam_raw']:,
+
+                #assert same length for all ts
+                exp_len = len(datasets_dict[0][0])
+                datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
+                print(os.listdir(mtc_path))
+                for mtclassifier in os.listdir(mtc_path):
+                        #check only for same explanation types
+                        #avoid pycache
+                        if not mtclassifier.startswith('_'):
+                            for itr in range(ITERATIONS): 
+                                
+                                mt_classifier = mtclassifier.split('.')[0]
+                                if mt_classifier.split('_')[0] not in expl_type: 
+                                    print(mt_classifier.split('_')[0], expl_type, mt_classifier.split('_')[0] not in expl_type )
+                                    continue
+
+                                #if 'ae' not in mt_classifier: continue 
+                                print(mt_classifier)
+                                #Explanation Type 
+                                output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                f'/experiment_1/{classifier_name}/{mt_classifier}_{itr}/{expl_type}/'  
+
+                                test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
+
+                                print(test_dir_df_metrics)
+                                if os.path.exists(test_dir_df_metrics):
+                                    print('Already done')
+                                else:
+                                    create_directory(output_directory)
+
+                                    fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, 
+                                                output_directory, 
+                                                'mse', 0, EPOCHS, BATCH_SIZE)
+                            
+
+            
+
+if mode == 'experiment_2': 
+
     archive_name = 'ucr'
-    GAMMAS = [1.0, 0.75, 0.5, 0.25, 0.0]
+    GAMMAS = [0.75]#, 0.5, 0.25]
 
     for dataset_name in DATASET_NAMES: 
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for classifier_name in CLASSIFIERS: 
-            
-            # TODO: for data_source in ATTRIBUTION_METHODS: // currently just minmax 
-            data_source = 'original'
-            data_dest = classifier_name + "_" + DATASCALING 
+        for expl_type in ['fcn_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,
 
-            gamma = 1.0
-            classifier = f'{classifier_name}_{gamma}'
-
-            output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}/{classifier}/{data_source}/' 
-            
-            test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
-
-            if os.path.exists(test_dir_df_metrics):
-                print('Already done', 'Singletask')
-            else:
-                create_directory(output_directory)
-
-                fit_classifier(classifier_name, 'singletask', datasets_dict, None, 
-                            output_directory, None, gamma, EPOCHS, BATCH_SIZE)
-                            
+            #assert same length for all ts
+            exp_len = len(datasets_dict[0][0])
+            datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
+            for classifier_name in CLASSIFIERS: 
                 
-                att = calculate_cam_attributions(root_dir, archive_name, classifier, 
-                                                    dataset_name, data_source)
+                mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
+
+                #assert same length for all ts
+                exp_len = len(datasets_dict[0][0])
+                datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
+                print(os.listdir(mtc_path))
+                for mtclassifier in os.listdir(mtc_path):
+                        #check only for same explanation types
+                        #avoid pycache
+                        if not mtclassifier.startswith('_'): 
+                            for gamma in GAMMAS:  
+                                for itr in range(ITERATIONS): 
+                                    
+                                    mt_classifier = mtclassifier.split('.')[0]
+                                    if mt_classifier.split('_')[0] not in expl_type: 
+                                        print(mt_classifier.split('_')[0], expl_type, mt_classifier.split('_')[0] not in expl_type )
+                                        continue
+
+                                    #if 'ae' not in mt_classifier: continue 
+                                    print(mt_classifier)
+                                    #Explanation Type 
+
+                                    output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                                        f'/experiment_2/{classifier_name}/{mt_classifier}_{gamma}_{itr}/{expl_type}/'   
+
+                                    test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
+
+                                    print(test_dir_df_metrics)
+                                    if os.path.exists(test_dir_df_metrics):
+                                        print('Already done')
+                                    else:
+                                        create_directory(output_directory)
+
+                                        fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, 
+                                                    'mse', gamma, EPOCHS, BATCH_SIZE)
+
+
+
+
+if mode == 'experiment_3': 
+
+    archive_name = 'ucr'
+    GAMMAS = [0.75]
+
+    for dataset_name in DATASET_NAMES: 
+
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
+
+        for expl_type in ['fcn_ig_raw']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,
+
+            #assert same length for all ts
+            exp_len = len(datasets_dict[0][0])
+            datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
+            for classifier_name in CLASSIFIERS: 
                 
-                exp = create_cam_explanations(att, minmax_norm=False)
-                save_explanations(exp, root_dir, archive_name, data_dest, dataset_name)
+                mtc_path  = f'{root_dir}/classifiers_mtl_cascade/{classifier_name}'
+
+                #assert same length for all ts
+                exp_len = len(datasets_dict[0][0])
+                datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
+                print(os.listdir(mtc_path))
+                for mtclassifier in os.listdir(mtc_path):
+                        #check only for same explanation types
+                        #avoid pycache
+                        if not mtclassifier.startswith('_'): 
+                            for gamma in GAMMAS:  
+                                for itr in range(ITERATIONS): 
+                                    
+                                    mt_classifier = mtclassifier.split('.')[0]
+                                    if mt_classifier.split('_')[0] not in expl_type: 
+                                        print(mt_classifier.split('_')[0], expl_type, mt_classifier.split('_')[0] not in expl_type )
+                                        continue
+
+                                    #if 'ae' not in mt_classifier: continue 
+                                    print(mt_classifier)
+                                    #Explanation Type 
+
+                                    output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                                        f'/experiment_3/{classifier_name}/{mt_classifier}_{gamma}_{itr}/{expl_type}/'   
+
+                                    test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
+
+                                    print(test_dir_df_metrics)
+                                    if os.path.exists(test_dir_df_metrics):
+                                        print('Already done')
+                                    else:
+                                        create_directory(output_directory)
+
+                                        fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, 
+                                                    'mse', gamma, EPOCHS, BATCH_SIZE)
 
 
-            # assert that each x value is equally long 
-            exp_len  = len(datasets_dict[0][0]) 
-            # Re
-            datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, data_dest, exp_len)[dataset_name]
 
-            mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
+if mode == 'experiment_4': 
 
-            for mtclassifier in os.listdir(mtc_path):
+    archive_name = 'ucr'
+    GAMMAS = [1]
 
-                if classifier_name in mtclassifier:
+    for dataset_name in DATASET_NAMES: 
 
-                    mt_classifier = mtclassifier.split('.')[0]
+        datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-                    for gamma in GAMMAS:  
-                        print(mt_classifier, gamma)
-                        classifier = f'{mt_classifier}_{gamma}'
+        for expl_type in ['fcn_ig_raw']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:
 
-                        #Added support for Cosine Similarity 
-                        for loss in LOSSES: 
+            #assert same length for all ts
+            exp_len = len(datasets_dict[0][0])
+            datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
+            for classifier_name in CLASSIFIERS: 
+                
+                mtc_path  = f'{root_dir}/classifiers_mtl_iterative/{classifier_name}'
 
-                            output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/{classifier_name}' \
-                                f'/{classifier}/{data_dest}_{loss}/'  
-                            
-                            test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
+                #assert same length for all ts
+                exp_len = len(datasets_dict[0][0])
+                datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
+                print(os.listdir(mtc_path))
+                for mtclassifier in os.listdir(mtc_path):
+                        #check only for same explanation types
+                        #avoid pycache
+                        if not mtclassifier.startswith('_'): 
+                            for gamma in GAMMAS:  
+                                for itr in range(ITERATIONS): 
+                                    
+                                    mt_classifier = mtclassifier.split('.')[0]
+                                    if mt_classifier.split('_')[0] not in expl_type: 
+                                        print(mt_classifier.split('_')[0], expl_type, mt_classifier.split('_')[0] not in expl_type )
+                                        continue
 
-                            if os.path.exists(test_dir_df_metrics):
-                                print('Already done')
-                                break
-                            else:
-                                create_directory(output_directory)
+                                    #if 'ae' not in mt_classifier: continue 
+                                    print(mt_classifier)
+                                    #Explanation Type 
 
-                                lossf = tf.keras.losses.CosineSimilarity(axis=1) if loss == 'cosinesim' else loss
+                                    output_directory = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                                                        f'/experiment_4/{classifier_name}/{mt_classifier}_{gamma}_{itr}/{expl_type}/'   
 
-                                fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, 
-                                            lossf, gamma, EPOCHS, BATCH_SIZE)
+                                    test_dir_df_metrics = output_directory + 'task1_df_metrics.csv'
 
+                                    print(test_dir_df_metrics)
+                                    if os.path.exists(test_dir_df_metrics):
+                                        print('Already done')
+                                    else:
+                                        create_directory(output_directory)
 
-print('DONE')
-
-# the creation of this directory means
-#create_directory(output_directory + '/DONE')
+                                        fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, 
+                                                    'mse', gamma, EPOCHS, BATCH_SIZE)

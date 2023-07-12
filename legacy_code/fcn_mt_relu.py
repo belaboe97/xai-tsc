@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_SIGMOID:
+class Classifier_FCN_MT_RELUS:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -54,15 +54,17 @@ class Classifier_FCN_MT_SIGMOID:
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
-		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
 
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='sigmoid', name='task_2_output')(gap_layer)
+		#additional layers: 
+		"""
+		dense_layer = keras.layers.Dense(64, activation='relu')(gap_layer)
+		dense_layer = keras.layers.Dropout(0.2)(dense_layer)
+		dense_layer = keras.layers.Dense(32, activation='relu')(dense_layer)
+		dense_layer = keras.layers.Dropout(0.2)(dense_layer)
+		"""
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=2, padding='same', activation = keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(conv3)
+		#output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=2, padding='same', activation='linear', name='task_2_output')(conv3)
 		#linear
-
-
-		print("SHAPE OUTPUT",output_layer_2.shape)
-
-
 		"""
 		Define model: 
 
@@ -71,10 +73,11 @@ class Classifier_FCN_MT_SIGMOID:
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
 		#print(model.summary())
+		#'task_2_output': 'mae'
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': self.output_2_loss},
+			loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 
@@ -89,7 +92,7 @@ class Classifier_FCN_MT_SIGMOID:
 			save_best_only=True)
 		
 
-		self.callbacks = [reduce_lr,model_checkpoint] #g, early_stop]
+		self.callbacks = [reduce_lr,model_checkpoint] 
 
 		return model 
 

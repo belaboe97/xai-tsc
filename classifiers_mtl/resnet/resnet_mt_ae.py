@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_RESNET_MT_DENSE:
+class Classifier_RESNET_MT_AE:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -96,6 +96,64 @@ class Classifier_RESNET_MT_DENSE:
 		output_block_3 = keras.layers.add([shortcut_y, conv_z])
 		output_block_3 = keras.layers.Activation('relu')(output_block_3)
 
+		###
+		# BLOCK 3 (mirrored)
+		conv_z_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps * 2, kernel_size=3, padding='same')(output_block_3)
+		conv_z_dec = keras.layers.BatchNormalization()(conv_z_dec)
+		conv_z_dec = keras.layers.Activation('relu')(conv_z_dec)
+
+		conv_y_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps * 2, kernel_size=5, padding='same')(conv_z_dec)
+		conv_y_dec = keras.layers.BatchNormalization()(conv_y_dec)
+		conv_y_dec = keras.layers.Activation('relu')(conv_y_dec)
+
+		conv_x_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps * 2, kernel_size=8, padding='same')(conv_y_dec)
+		conv_x_dec = keras.layers.BatchNormalization()(conv_x_dec)
+		conv_x_dec = keras.layers.Activation('relu')(conv_x_dec)
+
+		shortcut_y_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps * 2, kernel_size=1, padding='same')(output_block_2)
+		shortcut_y_dec = keras.layers.BatchNormalization()(shortcut_y_dec)
+
+		output_block_3_dec = keras.layers.add([shortcut_y_dec, conv_x_dec])
+		output_block_3_dec = keras.layers.Activation('relu')(output_block_3_dec)
+
+		# BLOCK 2 (mirrored)
+		conv_z_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps, kernel_size=3, padding='same')(output_block_3_dec)
+		conv_z_dec = keras.layers.BatchNormalization()(conv_z_dec)
+		conv_z_dec = keras.layers.Activation('relu')(conv_z_dec)
+
+		conv_y_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps, kernel_size=5, padding='same')(conv_z_dec)
+		conv_y_dec = keras.layers.BatchNormalization()(conv_y_dec)
+		conv_y_dec = keras.layers.Activation('relu')(conv_y_dec)
+
+		conv_x_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps, kernel_size=8, padding='same')(conv_y_dec)
+		conv_x_dec = keras.layers.BatchNormalization()(conv_x_dec)
+		conv_x_dec = keras.layers.Activation('relu')(conv_x_dec)
+
+		shortcut_y_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps, kernel_size=1, padding='same')(output_block_1)
+		shortcut_y_dec = keras.layers.BatchNormalization()(shortcut_y_dec)
+
+		output_block_2_dec = keras.layers.add([shortcut_y_dec, conv_x_dec])
+		output_block_2_dec = keras.layers.Activation('relu')(output_block_2_dec)
+
+		# BLOCK 1 (mirrored)
+		conv_z_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps, kernel_size=3, padding='same')(output_block_2_dec)
+		conv_z_dec = keras.layers.BatchNormalization()(conv_z_dec)
+		conv_z_dec = keras.layers.Activation('relu')(conv_z_dec)
+
+		conv_y_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps, kernel_size=5, padding='same')(conv_z_dec)
+		conv_y_dec = keras.layers.BatchNormalization()(conv_y_dec)
+		conv_y_dec = keras.layers.Activation('relu')(conv_y_dec)
+
+		conv_x_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps, kernel_size=8, padding='same')(conv_y_dec)
+		conv_x_dec = keras.layers.BatchNormalization()(conv_x_dec)
+		conv_x_dec = keras.layers.Activation('relu')(conv_x_dec)
+
+		shortcut_y_dec = keras.layers.Conv1DTranspose(filters=n_feature_maps, kernel_size=1, padding='same')(output_block_1)
+		shortcut_y_dec = keras.layers.BatchNormalization()(shortcut_y_dec)
+
+		output_block_1_dec = keras.layers.add([shortcut_y_dec, conv_x_dec])
+		output_block_1_dec = keras.layers.Activation('relu')(output_block_1_dec)
+
 		# FINAL
 
 		gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
@@ -105,8 +163,11 @@ class Classifier_RESNET_MT_DENSE:
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
-		#linear
+		#output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
+		#linearkeras.layers.LeakyReLU(alpha=0.03)
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear', name='task_2_output')(output_block_1_dec)
+		#keras.layers.LeakyReLU(alpha=0.03)
+		#activation='linear'
 		"""
 		Define model: 
 
@@ -156,6 +217,9 @@ class Classifier_RESNET_MT_DENSE:
 
 		start_time = time.time() 
 
+		
+		
+
 		hist = self.model.fit(
 		{'input_1': x_train},
         {'task_1_output': y_train_1, 'task_2_output': y_train_2},
@@ -169,7 +233,11 @@ class Classifier_RESNET_MT_DENSE:
 		
 		duration = time.time() - start_time
 
+	
+
 		self.model.save(self.output_directory+'last_model.hdf5')
+		
+
 		
 		if os.getenv("COLAB_RELEASE_TAG"):
 			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
@@ -184,12 +252,12 @@ class Classifier_RESNET_MT_DENSE:
 		y_pred_1 = np.argmax(y_pred[0] , axis=1)
 		y_pred_2 = np.argmax(y_pred[1] , axis=1)
 
-		"""
-		save_logs: 
-		Calculate metrics and saves as csv. 
-		Input format: 
-		save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None)
-		"""
+	
+		#save_logs: 
+		#Calculate metrics and saves as csv. 
+		#Input format: 
+		#save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None)
+
 
 		#print(y_pred_1.shape, y_pred_1, y_pred_2)
 		save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
@@ -206,3 +274,65 @@ class Classifier_RESNET_MT_DENSE:
 			return df_metrics
 		else:
 			return y_pred
+		
+	
+		"""
+		
+		
+
+		hist = self.model.fit(
+		{'input_1': x_train},
+        {'task_1_output': y_train_1, 'task_2_output': y_train_2},
+		batch_size=mini_batch_size, 
+		epochs=self.epochs,
+		verbose=self.verbose, 
+		validation_data=(
+			x_val,
+			{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
+		callbacks=self.callbacks)
+		
+		duration = time.time() - start_time
+
+		"""
+
+		self.model.save(self.output_directory+'last_model.hdf5')
+		
+
+		"""
+		if os.getenv("COLAB_RELEASE_TAG"):
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
+		else:
+			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
+
+		# convert the predicted from binary to integer 
+		# Multitask output 
+		y_pred = model.predict(x_val)
+
+		#Predictions for task1 and task2
+		y_pred_1 = np.argmax(y_pred[0] , axis=1)
+		y_pred_2 = np.argmax(y_pred[1] , axis=1)
+
+	
+		#save_logs: 
+		#Calculate metrics and saves as csv. 
+		#Input format: 
+		save_logs(output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration, lr=True, y_true_val=None, y_pred_val=None)
+
+
+		#print(y_pred_1.shape, y_pred_1, y_pred_2)
+		save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
+
+		keras.backend.clear_session()
+
+	def predict(self, x_test, y_true,x_train,y_train,y_test,return_df_metrics = True):
+		model_path = self.output_directory + 'best_model.hdf5'
+		model = keras.models.load_model(model_path)
+		y_pred = model.predict(x_test)
+		if return_df_metrics:
+			y_pred = np.argmax(y_pred, axis=1)
+			df_metrics = calculate_metrics(y_true, y_pred, 0.0)
+			return df_metrics
+		else:
+			return y_pred
+		
+	"""
