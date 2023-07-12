@@ -134,6 +134,7 @@ class Classifier_RESNET:
                                                            save_best_only=True)
 
         self.callbacks = [reduce_lr, model_checkpoint,tensorborad]
+        self.best_loss = model_checkpoint.best
 
         return model
 
@@ -169,8 +170,8 @@ class Classifier_RESNET:
         df_metrics = save_logs_stl(self.output_directory, hist, y_pred, y_true, duration)
 
         keras.backend.clear_session()
-
-        return df_metrics
+        print(df_metrics, df_metrics['accuracy'])
+        return df_metrics["accuracy"].values
 
     def predict(self, x_test, y_true, x_train, y_train, y_test, return_df_metrics=True):
         start_time = time.time()

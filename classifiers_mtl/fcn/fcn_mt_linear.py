@@ -54,8 +54,15 @@ class Classifier_FCN_MT_Linear:
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation=keras.layers.LeakyReLU(alpha=0.01), name='task_2_output')(gap_layer)
-		#linear
+
+		flatten = keras.layers.Flatten()(conv3)
+
+		output_layer_2 = keras.layers.Dense(input_shape[0], activation="linear",name='task_2_output')(flatten)
+		#keras.layers.LeakyReLU(alpha=0.01)
+
+		print("SHAPE OUTPUT",output_layer_2.shape)
+
+
 		"""
 		Define model: 
 
@@ -63,12 +70,10 @@ class Classifier_FCN_MT_Linear:
 
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
-		#print(model.summary())
-		#'task_2_output': 'mae'
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
+			loss={'task_1_output': 'categorical_crossentropy', 'task_2_output': self.output_2_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 
@@ -83,9 +88,10 @@ class Classifier_FCN_MT_Linear:
 			save_best_only=True)
 		
 
-		self.callbacks = [reduce_lr,model_checkpoint] 
+		self.callbacks = [reduce_lr,model_checkpoint] #g, early_stop]
 
 		return model 
+
 
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
 			

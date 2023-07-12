@@ -2,7 +2,7 @@ ITERATIONS = 5  # nb of random runs for random initializations
 
 ARCHIVE_NAMES = ['UCRArchive_2018']
 
-CLASSIFIERS = ['resnet']#'fcn']  #'mlp', 'resnet', 'tlenet', 'mcnn', 'twiesn', 'encoder', 'mcdcnn', 'cnn', 'inception']
+CLASSIFIERS = ['fcn','resnet']#'fcn']  #'mlp', 'resnet', 'tlenet', 'mcnn', 'twiesn', 'encoder', 'mcdcnn', 'cnn', 'inception']
 
 
 CAM_LAYERS = {

@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_CONV:
+class Classifier_FCN_MT_AE_CAS:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -43,25 +43,59 @@ class Classifier_FCN_MT_CONV:
 		conv2 = keras.layers.BatchNormalization()(conv2)
 		conv2 = keras.layers.Activation('relu')(conv2)
 
-		conv3 = keras.layers.Conv1D(filters=128, kernel_size=3,padding='same')(conv2)
+		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
 		conv3 = keras.layers.BatchNormalization()(conv3)
 		conv3 = keras.layers.Activation('relu')(conv3)
+		
+		#gap_layer = keras.layers.AveragePooling1D()(conv3)
+
+		conv4 = keras.layers.Conv1DTranspose(filters=128, kernel_size=3, padding='same')(conv3)
+		conv4 = keras.layers.BatchNormalization()(conv4)
+		conv4 = keras.layers.Activation('relu')(conv4)
+
+		conv5 = keras.layers.Conv1DTranspose(filters=256, kernel_size=5, padding='same')(conv4)
+		conv5 = keras.layers.BatchNormalization()(conv5)
+		conv5 = keras.layers.Activation('relu')(conv5)
+
+		conv6 = keras.layers.Conv1DTranspose(filters=128, kernel_size=8, padding='same')(conv5)
+		conv6 = keras.layers.BatchNormalization()(conv6)
+		conv6 = keras.layers.Activation('relu')(conv6)
+
+		# FINAL
 
 		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
+
 	
 		"""
 		Specific Output layers: 
 		"""
-		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
-		
-		output_layer_2  = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
-		#output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
-		#keras.layers.LeakyReLU(alpha=0.01)
+		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output',trainable=False)(gap_layer)
+
+		#output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
+		#linearkeras.layers.LeakyReLU(alpha=0.03)
+		#output_layer_2 = keras.layers.Conv1D(filters=input_shape[1], kernel_size=1, padding='same', activation='linear')(conv6)
+		#output_layer_2 = keras.layers.Flatten()(output_layer_2)
+		flatten_conv6  = keras.layers.Flatten()(conv6)
+		concat_input_2 = keras.layers.Concatenate()([flatten_conv6,output_layer_1])
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="relu")(concat_input_2)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear")(output_layer_2)
+		#output_layer_2 = keras.layers.Multiply(name='task_2_output')([output_layer_2, input_layer])
+		"""
+		Specific Output layers: 
+		"""
+		"""
+		output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear")(conv3)
+		output_layer_2 = keras.layers.Flatten()(output_layer_2)
+		concat_output_1 = keras.layers.Concatenate(trainable=False)([gap_layer, output_layer_1])
+		output_layer_1_resized = keras.layers.Dense(units=output_layer_2.shape[1])(concat_output_1)
+		tf.stop_gradient(output_layer_1_resized)
+		add_input_2 = keras.layers.Add()([output_layer_2,output_layer_1_resized])
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear", name='task_2_output')(add_input_2)
+		"""
 
 		print("SHAPE OUTPUT",output_layer_2.shape)
-
-
+		
 		"""
 		Define model: 
 
@@ -78,9 +112,8 @@ class Classifier_FCN_MT_CONV:
 
 		reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50, 
 			min_lr=0.0001)
-				
+		
 		#early_stop = keras.callbacks.EarlyStopping(patience = 3)
-
 		file_path = self.output_directory+'best_model.hdf5'
 
 		model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss', 
@@ -105,7 +138,7 @@ class Classifier_FCN_MT_CONV:
 
 		batch_size = self.batch_size
 
-		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
+		mini_batch_size = int(min(x_train.shape[0]/5, batch_size))
 
 		start_time = time.time() 
 

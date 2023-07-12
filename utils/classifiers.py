@@ -49,38 +49,68 @@ def create_classifier_mt(classifier_name,
                          epochs, batch_size,
                          verbose=False):
     #set_global_determinism(0)
+
+    ### EXPERIMENT 1 AND 2: 
     if classifier_name == 'fcn_mt_ae': 
         from classifiers_mtl.fcn import fcn_mt_ae
         return fcn_mt_ae.Classifier_FCN_MT_AE(output_directory, input_shape, nb_classes, lossf,
                                               gamma, epochs, batch_size, verbose)
-    if classifier_name == 'fcn_mt_linear': 
-        from classifiers_mtl.fcn import fcn_mt_linear
-        return fcn_mt_linear.Classifier_FCN_MT_Linear(output_directory, input_shape, nb_classes, lossf,
-                                                    gamma, epochs, batch_size, verbose)
+    
+
+    if classifier_name == 'resnet_mt_ae': 
+        from classifiers_mtl.resnet import resnet_mt_ae
+        return resnet_mt_ae.Classifier_RESNET_MT_AE(output_directory, input_shape, nb_classes, lossf, 
+                                                          gamma, epochs, batch_size, verbose)
+
     if classifier_name == 'fcn_mt_conv': 
         from classifiers_mtl.fcn import fcn_mt_conv
         return fcn_mt_conv.Classifier_FCN_MT_CONV(output_directory, input_shape, nb_classes, lossf,
                                                         gamma, epochs, batch_size, verbose)
-    if classifier_name == 'fcn_mt_relu': 
-        from classifiers_mtl.fcn import fcn_mt_relu
-        return fcn_mt_relu.Classifier_FCN_MT_RELUS(output_directory, input_shape, nb_classes, lossf,
-                                                        gamma, epochs, batch_size, verbose)
+    
+    if classifier_name == 'resnet_mt_conv': 
+        from classifiers_mtl.resnet import resnet_mt_conv
+        return resnet_mt_conv.Classifier_RESNET_MT_CONV(output_directory, input_shape, nb_classes, lossf, 
+                                                            gamma, epochs, batch_size, verbose)
+    
 
-    if classifier_name == 'resnet_mt_dense': 
-        from classifiers_mtl.resnet import resnet_mt_dense
-        return resnet_mt_dense.Classifier_RESNET_MT_DENSE(output_directory, input_shape, nb_classes, lossf, 
-                                                          gamma, epochs, batch_size, verbose)
-    if classifier_name == 'fcn_mt_test': 
-        from classifiers_mtl.fcn import fcn_mt_test
-        return fcn_mt_test.Classifier_FCN_MT_TEST(output_directory, input_shape, nb_classes, lossf, 
+    if classifier_name == 'fcn_mt_linear': 
+        from classifiers_mtl.fcn import fcn_mt_linear
+        return fcn_mt_linear.Classifier_FCN_MT_Linear(output_directory, input_shape, nb_classes, lossf,
+                                                    gamma, epochs, batch_size, verbose)
+
+
+    ### EXPERIMENT 3: 
+    if classifier_name == 'fcn_mt_conv_cas': 
+        from classifiers_mtl_cascade.fcn import fcn_mt_conv_cas
+        return fcn_mt_conv_cas.Classifier_FCN_MT_CONV_CAS(output_directory, input_shape, nb_classes, lossf,
+                                                        gamma, epochs, batch_size, verbose)
+    
+    if classifier_name == 'fcn_mt_ae_cas': 
+        from classifiers_mtl_cascade.fcn import fcn_mt_ae_cas
+        return fcn_mt_ae_cas.Classifier_FCN_MT_AE_CAS(output_directory, input_shape, nb_classes, lossf,
+                                                        gamma, epochs, batch_size, verbose)
+    
+    if classifier_name == 'resnet_mt_conv_cas': 
+        from classifiers_mtl_cascade.resnet import resnet_mt_conv_cas
+        return resnet_mt_conv_cas.Classifier_RESNET_MT_CONV_CAS(output_directory, input_shape, nb_classes, lossf, 
                                                             gamma, epochs, batch_size, verbose)
     
-    
-    if classifier_name == 'resnet_mt_sigmoid': 
-        from classifiers_mtl.resnet import resnet_mt_sigmoid
-        return resnet_mt_sigmoid.Classifier_RESNET_MT_SIGMOID(output_directory, input_shape, nb_classes, lossf, 
+    if classifier_name == 'resnet_mt_ae_cas': 
+        from classifiers_mtl_cascade.resnet import resnet_mt_ae_cas
+        return resnet_mt_ae_cas.Classifier_RESNET_MT_AE_CAS(output_directory, input_shape, nb_classes, lossf, 
                                                             gamma, epochs, batch_size, verbose)
-        
+
+    ### EXPERIMENT 4: 
+    if classifier_name == 'fcn_mt_ae_iter': 
+        from classifiers_mtl_iterative.fcn import fcn_mt_ae_iter
+        return fcn_mt_ae_iter.Classifier_FCN_MT_AE_ITER(output_directory, input_shape, nb_classes, lossf, 
+                                                            gamma, epochs, batch_size, verbose)
+
+    if classifier_name == 'fcn_mt_conv_iter': 
+        from classifiers_mtl_iterative.fcn import fcn_mt_conv_iter
+        return fcn_mt_conv_iter.Classifier_FCN_MT_CONV_ITER(output_directory, input_shape, nb_classes, lossf,
+                                                        gamma, epochs, batch_size, verbose)
+    
 def fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
                    output_directory, lossf, gamma, epochs, batch_size):
     
@@ -109,12 +139,12 @@ def fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2,
 
         classifier = create_classifier(classifier_name, input_shape, nb_classes, 
                                        output_directory,  epochs, batch_size)
-        classifier.fit(x_train, y_train, x_test, y_test, y_true)
+        acc = classifier.fit(x_train, y_train, x_test, y_test, y_true)
+        return acc
 
     if mode == 'multitask': 
 
         y_len = len(x_train[0])
-        
         _ , y_train_2, _ , y_test_2 = datasets_dict_2
 
         classifier = create_classifier_mt(classifier_name, input_shape, nb_classes, lossf, 

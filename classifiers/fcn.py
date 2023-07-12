@@ -75,15 +75,12 @@ class Classifier_FCN:
             monitor="loss", factor=0.5, patience=50, min_lr=0.0001
         )
 
-        # early_stop = keras.callbacks.EarlyStopping(patience = 3)
 
         file_path = self.output_directory + "best_model.hdf5"
 
-        model_checkpoint = keras.callbacks.ModelCheckpoint(
-            filepath=file_path, monitor="loss", save_best_only=True
-        )
+        model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor="loss", save_best_only=True)
 
-        self.callbacks = [reduce_lr, model_checkpoint]  # ,early_stop]
+        self.callbacks = [reduce_lr, model_checkpoint]  #
 
         return model
 
@@ -119,9 +116,11 @@ class Classifier_FCN:
         # convert the predicted from binary to integer
         y_pred = np.argmax(y_pred, axis=1)
 
-        save_logs_stl(self.output_directory, hist, y_pred, y_true, duration)
+        df_metrics = save_logs_stl(self.output_directory, hist, y_pred, y_true, duration)
 
         keras.backend.clear_session()
+        print(df_metrics)
+        return df_metrics["accuracy"].values
 
     def predict(self, x_test, y_true, x_train, y_train, y_test, return_df_metrics=True):
         model_path = self.output_directory + "best_model.hdf5"

@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_FCN_MT_CONV:
+class Classifier_FCN_MT_CONV_CAS:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -48,20 +48,26 @@ class Classifier_FCN_MT_CONV:
 		conv3 = keras.layers.Activation('relu')(conv3)
 
 		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
+
+
+		conv3 = keras.layers.Conv1D(filters=128, kernel_size=3,padding='same')(conv2)
+		conv3 = keras.layers.BatchNormalization()(conv3)
+		conv3 = keras.layers.Activation('relu')(conv3)
 	
 		"""
 		Specific Output layers: 
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
-		
-		output_layer_2  = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
-		#output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
+		output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear")(conv3)
+		output_layer_2 = keras.layers.Flatten()(output_layer_2)
+		concat_input_2 = keras.layers.Concatenate(axis=1)([output_layer_2, output_layer_1])
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear", name='task_2_output')(concat_input_2)
 		#keras.layers.LeakyReLU(alpha=0.01)
 
 		print("SHAPE OUTPUT",output_layer_2.shape)
 
-
+		
 		"""
 		Define model: 
 
@@ -78,9 +84,8 @@ class Classifier_FCN_MT_CONV:
 
 		reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50, 
 			min_lr=0.0001)
-				
+		
 		#early_stop = keras.callbacks.EarlyStopping(patience = 3)
-
 		file_path = self.output_directory+'best_model.hdf5'
 
 		model_checkpoint = keras.callbacks.ModelCheckpoint(filepath=file_path, monitor='loss', 
