@@ -26,6 +26,8 @@ class Classifier_RESNET_MT_AE:
 			self.verbose = verbose
 			self.model.save_weights(self.output_directory+'model_init.hdf5')
 		return
+	
+
 
 
 	def build_model(self, input_shape, nb_classes_1):
@@ -157,7 +159,14 @@ class Classifier_RESNET_MT_AE:
 		# FINAL
 
 		gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
+		
 
+		#flatten_l = keras.layers.Flatten()(input_layer)
+		#constants = keras.layers.Identity()(input_layer)  # Make a copy of the input_tensor
+
+
+		# Apply stop_gradients to the constants tensor
+		#constants = tf.stop_gradient(constants)
 	
 		"""
 		Specific Output layers: 
@@ -165,22 +174,48 @@ class Classifier_RESNET_MT_AE:
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 		#output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
 		#linearkeras.layers.LeakyReLU(alpha=0.03)
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear', name='task_2_output')(output_block_1_dec)
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear',name='task_2_output')(output_block_1_dec)
+		#output_layer_2 = tf.keras.layers.Multiply(name='task_2_output')([output_layer_2, constants])
 		#keras.layers.LeakyReLU(alpha=0.03)
 		#activation='linear'
 		"""
 		Define model: 
 
 		"""
-
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
 		#print(model.summary())
 		#'task_2_output': 'mae'
+		def custom_loss(y_true, y_pred):
+			# Compute the squared error between true and predicted values
+			squared_error = tf.square(y_true - y_pred)
+			
+			# Mask for non-zero predictions when true value is zero
+			mask = tf.cast(tf.equal(y_true, 0) & tf.not_equal(y_pred, 0), dtype=tf.float32)
+		
+			#mask_with_constant = tf.add(mask, 1)
+			#modified_mask = tf.keras.backend.switch(tf.keras.backend.equal(mask, 0), 0.5, mask)
+
+			# Multiply the squared error with the mask
+			#masked_error = squared_error * mask_with_constant
+			
+			masked_loss = squared_error * mask
+			penalized_loss = tf.reduce_mean(masked_loss)
+			
+			# Calculate the non-penalized loss
+			non_penalized_loss = squared_error
+			
+			# Combine the penalized and non-penalized losses
+			combined_loss = 2*penalized_loss + non_penalized_loss
+
+			# Compute the mean of the masked error as the loss
+			loss = tf.reduce_mean(combined_loss)
+			
+			return loss
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
+			loss={'task_1_output': 'categorical_crossentropy','task_2_output': custom_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 

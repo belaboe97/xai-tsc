@@ -159,15 +159,16 @@ def integrated_gradients(model,
 def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, 
                               data_source, datasets_dict = None, task=0, experiment=1):
      
-    with CustomObjectScope({'InstanceNormalization':tfa.layers.InstanceNormalization()}):
-        model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-                        f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
-                        f'{classifier}/{data_source}/last_model.hdf5'     
-        #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-        #                                + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
-        #                                + f'last_model.hdf5'
-        model =keras.models.load_model(model_path ,compile=False)
-    
+
+    model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                    f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
+                    f'{classifier}/{data_source}/last_model.hdf5'  
+    print(model_path)   
+    #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+    #                                + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
+    #                                + f'last_model.hdf5'
+    model =keras.models.load_model(model_path ,compile=False)
+
     if datasets_dict == None: 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)
         x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
@@ -178,7 +179,6 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
     output = list()
     baseline = tf.zeros(len(x_train[0]))
     
-
     #tf.random.uniform((1,x_train.shape[1]),minval=-1,maxval=1) # tf.zeros(len(x_train[0]))
     y_pos = list(np.unique(y_train))
     for x_vals,y_vals in [[x_train,y_train],[x_test,y_test]]:
@@ -186,7 +186,6 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
         attr = list()
         for idx,ts in enumerate(x_vals):
             series = ts
-            #print(np.argmax(pred[idx]), pred[idx])
             ig_att = integrated_gradients(model,baseline,series.astype('float32'),
                                         np.argmax(pred[idx]),
                                         task=task)

@@ -35,7 +35,6 @@ class Classifier_FCN_MT_CONV_ITER:
 
 		"""
 		Main branch, shared features. 
-		"""
 		input_layer = keras.layers.Input(input_shape)
 
 		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same')(input_layer)
@@ -52,18 +51,52 @@ class Classifier_FCN_MT_CONV_ITER:
 
 		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
 	
-		"""
-		Specific Output layers: 
-		"""
+
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
 		#output_layer_2 = keras.layers.Flatten()(conv)
 		#output_layer_2  = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
 		#linear
-		"""
+
 		Define model: 
 
 		"""
+		
+		input_layer = keras.layers.Input(input_shape)
+
+		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same')(input_layer)
+		conv1 = keras.layers.BatchNormalization()(conv1)
+		conv1 = keras.layers.Activation(activation='relu')(conv1)
+
+		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same')(conv1)
+		conv2 = keras.layers.BatchNormalization()(conv2)
+		conv2 = keras.layers.Activation('relu')(conv2)
+
+		conv3 = keras.layers.Conv1D(filters=128, kernel_size=3,padding='same')(conv2)
+		conv3 = keras.layers.BatchNormalization()(conv3)
+		conv3 = keras.layers.Activation('relu')(conv3)
+
+		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
+
+
+		conv3 = keras.layers.Conv1D(filters=128, kernel_size=3,padding='same')(conv2)
+		conv3 = keras.layers.BatchNormalization()(conv3)
+		conv3 = keras.layers.Activation('relu')(conv3)
+	
+		"""
+		Specific Output layers: 
+		"""
+		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output',trainable=False)(gap_layer)
+		#output_layer_2 = keras.layers.Conv1D(filters=input_shape[1], kernel_size=1, padding='same', activation='linear')(conv3)
+		#print(output_layer_2.shape,output_layer_1.shape)
+		#output_layer_2 = keras.layers.Flatten()(output_layer_2)
+		flatten_conv3 = keras.layers.Flatten()(conv3)
+		concat_input_2 = keras.layers.Concatenate()([flatten_conv3, output_layer_1])
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="relu")(concat_input_2)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear")(output_layer_2)
+		scale_flatten = keras.layers.Flatten(trainable=False)(input_layer)
+		output_layer_2 = keras.layers.Multiply(name='task_2_output')([output_layer_2, scale_flatten])
+		
 
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
@@ -144,10 +177,10 @@ class Classifier_FCN_MT_CONV_ITER:
 			# Make predictions using model.predict
 
 			#Conditions  
-			if epoch > 199 and epoch + 1 % 10 == 0: #epoch > 0 and epoch % 1 == 0
+			if epoch == 0 and epoch + 1 % 1 == 0: #epoch > 0 and epoch % 1 == 0
 
-				if epoch % 200 == 0: 
-					self.gamma - 0.25
+				if epoch % 500  == 0: 
+					self.gamma #- 0.25
 					print("Gamma reducded", self.gamma)
 					weights = self.model.get_weights()
 					model.compile( 
@@ -165,8 +198,10 @@ class Classifier_FCN_MT_CONV_ITER:
 					idx = 0
 					pred = self.model.predict(x_train)
 					for x,y in zip(xvalues,yvalues):#
+
+						print(x, x.shape)
 						#print("YVALUES",np.argmax(y))
-						if np.argmax(pred[0][idx]) == np.argmax(y): 
+						if True: #np.argmax(pred[0][idx]) == np.argmax(y): 
 							series = x.flatten()
 							#print(series.shape,pred[0][idx])
 							#series = x.flatten()
@@ -182,6 +217,7 @@ class Classifier_FCN_MT_CONV_ITER:
 
 						idx += 1
 
+		np.savetxt(self.output_directory+f"test{epoch}_XTEST", x_val.flatten(), delimiter=',')
 		np.savetxt(self.output_directory+f"test{epoch}_TRAIN", y_train_2, delimiter=',')
 		np.savetxt(self.output_directory+f"test{epoch}_TEST", y_val_2, delimiter=',')	
 

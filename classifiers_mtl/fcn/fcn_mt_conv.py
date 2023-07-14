@@ -55,7 +55,11 @@ class Classifier_FCN_MT_CONV:
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
 		
-		output_layer_2  = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
+		output_layer_2  = keras.layers.Conv1D(filters=128, kernel_size=1,padding='same',activation="linear")(conv3)
+		flatten = keras.layers.Flatten()(output_layer_2)
+		#output_layer_2  = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="relu")(flatten)
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear",name='task_2_output')(output_layer_2)
 		#output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
 		#keras.layers.LeakyReLU(alpha=0.01)
 
