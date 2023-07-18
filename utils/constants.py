@@ -7,7 +7,7 @@ CLASSIFIERS = ['fcn','resnet']#'fcn']  #'mlp', 'resnet', 'tlenet', 'mcnn', 'twie
 
 CAM_LAYERS = {
     'fcn' : {
-        'gap_layer' :  'activation_2',
+        'last_conv_layer' :  'shared_l9',
         'task_1' :  'task_1_output',
         'task_2' :  'task_2_output',
     },

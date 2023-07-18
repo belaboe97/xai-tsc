@@ -35,31 +35,33 @@ class Classifier_FCN_MT_CONV:
 		"""
 		input_layer = keras.layers.Input(input_shape)
 
-		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same')(input_layer)
-		conv1 = keras.layers.BatchNormalization()(conv1)
-		conv1 = keras.layers.Activation(activation='relu')(conv1)
+		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same',trainable=True, name="shared_l1")(input_layer)
+		conv1 = keras.layers.BatchNormalization(trainable=True, name="shared_l2")(conv1)
+		conv1 = keras.layers.Activation(activation='relu',trainable=True, name="shared_l3")(conv1)
 
-		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same')(conv1)
-		conv2 = keras.layers.BatchNormalization()(conv2)
-		conv2 = keras.layers.Activation('relu')(conv2)
+		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same',trainable=True, name="shared_l4")(conv1)
+		conv2 = keras.layers.BatchNormalization(trainable=True, name="shared_l5")(conv2)
+		conv2 = keras.layers.Activation('relu',trainable=True, name="shared_l6")(conv2)
 
-		conv3 = keras.layers.Conv1D(filters=128, kernel_size=3,padding='same')(conv2)
-		conv3 = keras.layers.BatchNormalization()(conv3)
-		conv3 = keras.layers.Activation('relu')(conv3)
+		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same',trainable=True, name="shared_l7")(conv2)
+		conv3 = keras.layers.BatchNormalization(trainable=True, name="shared_l8")(conv3)
+		conv3 = keras.layers.Activation('relu',trainable=True, name="shared_l9")(conv3)
+
 
 		gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
 	
 		"""
 		Specific Output layers: 
 		"""
-		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
+		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', trainable=True, name='task_1_output')(gap_layer)
 
-		
-		output_layer_2  = keras.layers.Conv1D(filters=128, kernel_size=1,padding='same',activation="linear")(conv3)
-		flatten = keras.layers.Flatten()(output_layer_2)
+		output_layer_2  = keras.layers.Conv1D(filters=1, kernel_size=3,padding='same',activation="linear",name='task_2_output')(conv3)
+		#flatten = keras.layers.Flatten()(output_layer_2)
 		#output_layer_2  = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="relu")(flatten)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear",name='task_2_output')(output_layer_2)
+		#output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="relu")(flatten)
+		#output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear",name='task_2_output')(output_layer_2)
+
+
 		#output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear",name='task_2_output')(conv3)
 		#keras.layers.LeakyReLU(alpha=0.01)
 

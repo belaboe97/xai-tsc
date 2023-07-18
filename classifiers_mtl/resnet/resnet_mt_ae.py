@@ -215,7 +215,7 @@ class Classifier_RESNET_MT_AE:
 
 		model.compile(
 			optimizer = keras.optimizers.Adam(), 
-			loss={'task_1_output': 'categorical_crossentropy','task_2_output': custom_loss},
+			loss={'task_1_output': 'categorical_crossentropy','task_2_output': 'mse'},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) #mae
 

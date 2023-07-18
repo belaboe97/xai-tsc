@@ -26,7 +26,7 @@ if os.getenv("COLAB_RELEASE_TAG"):
 else: 
     print("Local Environment detected")
     root_dir = "G:/Meine Ablage/master thesis/code/xai-tsc"
-    EPOCHS = 1
+    EPOCHS = 3
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 
@@ -35,7 +35,7 @@ else:
 
 
 SEED = 0
-DATASET_NAMES = ['Beef' ]#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['GunPoint', 'ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'raw' #minmax
 ITERATIONS = 6
@@ -183,13 +183,18 @@ if mode == 'experiment_1':
         
             mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
 
-            for expl_type in ['fcn_ig_raw','resnet_ig_raw',]:#,'fcn_cam_raw']:,
 
+            for expl_type in ['fcn_ig_raw']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
+                
                 #assert same length for all ts
                 exp_len = len(datasets_dict[0][0])
                 datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
+
+                        if 'fcn_mt_conv' not in mtclassifier: 
+                            continue
+
                         #check only for same explanation types
                         #avoid pycache
                         if not mtclassifier.startswith('_'):
@@ -213,10 +218,12 @@ if mode == 'experiment_1':
                                     print('Already done')
                                 else:
                                     create_directory(output_directory)
-
+                                    print(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, 
+                                                output_directory, 
+                                                'mse', 1, EPOCHS, BATCH_SIZE)
                                     fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, 
                                                 output_directory, 
-                                                'mse', 0, EPOCHS, BATCH_SIZE)
+                                                'mse', 1, EPOCHS, BATCH_SIZE)
                             
 
             
@@ -224,7 +231,7 @@ if mode == 'experiment_1':
 if mode == 'experiment_2': 
 
     archive_name = 'ucr'
-    GAMMAS = [0.75]#, 0.5, 0.25]
+    GAMMAS = [ 0.5, 0.25]#, 0.5, 0.25]
 
     for dataset_name in DATASET_NAMES: 
 
