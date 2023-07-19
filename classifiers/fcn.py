@@ -65,15 +65,12 @@ class Classifier_FCN:
 
         model = keras.models.Model(inputs=input_layer, outputs=output_layer)
 
-        model.compile(
-            loss="categorical_crossentropy",
+        model.compile(loss="categorical_crossentropy",
             optimizer=keras.optimizers.Adam(),
-            metrics=["accuracy"],
-        )
+            metrics=["accuracy"])
 
         reduce_lr = keras.callbacks.ReduceLROnPlateau(
-            monitor="loss", factor=0.5, patience=50, min_lr=0.0001
-        )
+        monitor="loss", factor=0.5, patience=50, min_lr=0.0001)
 
 
         file_path = self.output_directory + "best_model.hdf5"

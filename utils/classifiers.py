@@ -74,7 +74,7 @@ def create_classifier_mt(classifier_name,
     
 
     if classifier_name == 'fcn_mt_linear': 
-        from classifiers_mtl.fcn import fcn_mt_linear
+        from legacy_code import fcn_mt_linear
         return fcn_mt_linear.Classifier_FCN_MT_Linear(output_directory, input_shape, nb_classes, lossf,
                                                     gamma, epochs, batch_size, verbose)
 
@@ -104,6 +104,11 @@ def create_classifier_mt(classifier_name,
     if classifier_name == 'fcn_mt_ae_iter': 
         from classifiers_mtl_iterative.fcn import fcn_mt_ae_iter
         return fcn_mt_ae_iter.Classifier_FCN_MT_AE_ITER(output_directory, input_shape, nb_classes, lossf, 
+                                                            gamma, epochs, batch_size, verbose)
+    
+    if classifier_name == 'fcn_mt_ae_iter_freeze': 
+        from classifiers_mtl_iterative.fcn import fcn_mt_ae_iter_freeze
+        return fcn_mt_ae_iter_freeze.Classifier_FCN_MT_AE_ITER_FREEZE(output_directory, input_shape, nb_classes, lossf, 
                                                             gamma, epochs, batch_size, verbose)
 
     if classifier_name == 'fcn_mt_conv_iter': 

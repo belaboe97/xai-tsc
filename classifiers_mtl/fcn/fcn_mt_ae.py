@@ -10,6 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
+
 class Classifier_FCN_MT_AE:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
@@ -26,6 +27,23 @@ class Classifier_FCN_MT_AE:
 			self.verbose = verbose
 			self.model.save_weights(self.output_directory+'model_init.hdf5')
 		return
+	
+	
+	def custom_loss(y_true, y_pred):
+		# Compute the squared error between true and predicted values
+		squared_error = tf.square(y_true - y_pred)
+		
+		# Mask for non-zero predictions when true value is zero
+		mask = tf.cast(tf.equal(y_true, 0) & tf.not_equal(y_pred, 0), dtype=tf.float32)
+		modified_mask = tf.keras.backend.switch(tf.keras.backend.equal(mask, 0), 0.5, mask)
+
+		# Multiply the squared error with the mask
+		masked_error = squared_error * mask
+		
+		# Compute the mean of the masked error as the loss
+		loss = tf.reduce_mean(masked_error)
+		
+		return loss
 
 
 	def build_model(self, input_shape, nb_classes_1):
@@ -34,46 +52,41 @@ class Classifier_FCN_MT_AE:
 		"""
 		input_layer = keras.layers.Input(input_shape)
 
-		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same')(input_layer)
-		conv1 = keras.layers.BatchNormalization()(conv1)
-		conv1 = keras.layers.Activation(activation='relu')(conv1)
+		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same',trainable=True, name="shared_l1")(input_layer)
+		conv1 = keras.layers.BatchNormalization(trainable=True, name="shared_l2")(conv1)
+		conv1 = keras.layers.Activation(activation='relu',trainable=True, name="shared_l3")(conv1)
 
-		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same')(conv1)
-		conv2 = keras.layers.BatchNormalization()(conv2)
-		conv2 = keras.layers.Activation('relu')(conv2)
+		conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same',trainable=True, name="shared_l4")(conv1)
+		conv2 = keras.layers.BatchNormalization(trainable=True, name="shared_l5")(conv2)
+		conv2 = keras.layers.Activation('relu',trainable=True, name="shared_l6")(conv2)
 
-		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same')(conv2)
-		conv3 = keras.layers.BatchNormalization()(conv3)
-		conv3 = keras.layers.Activation('relu')(conv3)
+		conv3 = keras.layers.Conv1D(128, kernel_size=3,padding='same',trainable=True, name="shared_l7")(conv2)
+		conv3 = keras.layers.BatchNormalization(trainable=True, name="shared_l8")(conv3)
+		conv3 = keras.layers.Activation('relu',trainable=True, name="shared_l9")(conv3)
+		
 		
 		#gap_layer = keras.layers.AveragePooling1D()(conv3)
 
 		output_for_task_1 = keras.layers.GlobalAveragePooling1D()(conv3)  # alternative to GlobalAveragePooling1D
 
 		conv4 = keras.layers.Conv1DTranspose(filters=128, kernel_size=3, padding='same')(conv3)
-		conv4 = keras.layers.BatchNormalization()(conv4)
+		#conv4 = keras.layers.BatchNormalization()(conv4)
 		conv4 = keras.layers.Activation('relu')(conv4)
 
 		conv5 = keras.layers.Conv1DTranspose(filters=256, kernel_size=5, padding='same')(conv4)
-		conv5 = keras.layers.BatchNormalization()(conv5)
+		#conv5 = keras.layers.BatchNormalization()(conv5)
 		conv5 = keras.layers.Activation('relu')(conv5)
 
 		conv6 = keras.layers.Conv1DTranspose(filters=128, kernel_size=8, padding='same')(conv5)
-		conv6 = keras.layers.BatchNormalization()(conv6)
+		#conv6 = keras.layers.BatchNormalization()(conv6)
 		conv6 = keras.layers.Activation('relu')(conv6)
-
-		#print("Conv6",conv6.shape)
-
-		flat_layer = keras.layers.Flatten()(conv6) 
-
-		#decoder = keras.Model(decoder_input, decoder_output, name="decoder")
 
 		"""
 		Specific Output layers: 
 		"""
-		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(output_for_task_1)
+		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output', trainable=True)(output_for_task_1)
 
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear', name='task_2_output')(conv6)
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='linear', name='task_2_output')(conv6)
 
 		#output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear', name='task_2_output')(conv6)
 

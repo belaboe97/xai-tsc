@@ -26,7 +26,7 @@ if os.getenv("COLAB_RELEASE_TAG"):
 else: 
     print("Local Environment detected")
     root_dir = "G:/Meine Ablage/master thesis/code/xai-tsc"
-    EPOCHS = 2
+    EPOCHS = 3
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 
@@ -35,10 +35,10 @@ else:
 
 
 SEED = 0
-DATASET_NAMES = ['Beef' ]#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['GunPoint', 'ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'raw' #minmax
-ITERATIONS = 7
+ITERATIONS = 6
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -183,13 +183,18 @@ if mode == 'experiment_1':
         
             mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
 
-            for expl_type in ['fcn_ig_raw','resnet_ig_raw',]:#,'fcn_cam_raw']:,
 
+            for expl_type in ['fcn_ig_raw']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
+                
                 #assert same length for all ts
                 exp_len = len(datasets_dict[0][0])
                 datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
+
+                        if 'fcn_mt_conv' not in mtclassifier: 
+                            continue
+
                         #check only for same explanation types
                         #avoid pycache
                         if not mtclassifier.startswith('_'):
@@ -213,10 +218,12 @@ if mode == 'experiment_1':
                                     print('Already done')
                                 else:
                                     create_directory(output_directory)
-
+                                    print(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, 
+                                                output_directory, 
+                                                'mse', 1, EPOCHS, BATCH_SIZE)
                                     fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, 
                                                 output_directory, 
-                                                'mse', 0, EPOCHS, BATCH_SIZE)
+                                                'mse', 1, EPOCHS, BATCH_SIZE)
                             
 
             
@@ -224,13 +231,13 @@ if mode == 'experiment_1':
 if mode == 'experiment_2': 
 
     archive_name = 'ucr'
-    GAMMAS = [0.75]#, 0.5, 0.25]
+    GAMMAS = [ 0.5, 0.25]#, 0.5, 0.25]
 
     for dataset_name in DATASET_NAMES: 
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for expl_type in ['fcn_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,
+        for expl_type in ['resnet_ig_trf']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])
@@ -244,6 +251,8 @@ if mode == 'experiment_2':
                 datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
+                        
+                        if 'resnet_mt_ae' not in mtclassifier: continue
                         #check only for same explanation types
                         #avoid pycache
                         if not mtclassifier.startswith('_'): 
@@ -333,7 +342,8 @@ if mode == 'experiment_3':
 if mode == 'experiment_4': 
 
     archive_name = 'ucr'
-    GAMMAS = [1]
+    GAMMAS = [0.75]
+
 
     for dataset_name in DATASET_NAMES: 
 
@@ -345,14 +355,18 @@ if mode == 'experiment_4':
             exp_len = len(datasets_dict[0][0])
             datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
             for classifier_name in CLASSIFIERS: 
+
                 
                 mtc_path  = f'{root_dir}/classifiers_mtl_iterative/{classifier_name}'
-
+    
                 #assert same length for all ts
                 exp_len = len(datasets_dict[0][0])
                 datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
+                        
+                        if 'freeze' not in mtclassifier: 
+                            continue
                         #check only for same explanation types
                         #avoid pycache
                         if not mtclassifier.startswith('_'): 

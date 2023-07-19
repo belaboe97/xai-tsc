@@ -6,17 +6,25 @@ import tensorflow.keras as keras
 from keras.utils import CustomObjectScope
 import tensorflow_addons as tfa
 import sklearn
+from sklearn.preprocessing import normalize
+
 import os
 
 def minmax_norm(ts): 
     return (ts - np.min(ts)) / (np.max(ts) - np.min(ts))
+
+def norm(values): 
+    if not type(values) == np.ndarray:
+        return normalize(values.numpy().reshape(1,-1))[0]
+    else: 
+        return normalize(values.reshape(1,-1))[0]
 
 def get_layer_index(model, layer_name):
     layer_names = [layer.name for layer in model.layers]
     layer_idx = layer_names.index(layer_name)
     return layer_idx
 
-def calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name, data_source):
+def calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name, data_source, experiment=1):
 
     #load original data 
     datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)
@@ -34,22 +42,28 @@ def calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name,
     x_test  = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
     
     model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-                    f'/experiment_1/{classifier.split("_")[:-1][0]}/'\
-                    f'{classifier}/{data_source}/best_model.hdf5'   
+                    f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
+                    f'{classifier}/{data_source}/best_model.hdf5'  
+
+
     #load model 
     #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
     #                                    + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
     #                                    + f'best_model.hdf5'
     
     model = keras.models.load_model(model_path ,compile=False)
+
+    for layer in model.layers: 
+        print(layer.name)
     
     #get gap and output layer
-    gap = CAM_LAYERS[classifier.split("_")[0]]["gap_layer"]
+    #print(CAM_LAYERS[classifier.split("_")[0]])
+
+    gap = CAM_LAYERS[classifier.split("_")[0]]["last_conv_layer"]
     gap = get_layer_index(model, gap)
     out = CAM_LAYERS[classifier.split("_")[0]]["task_1"]
     out = get_layer_index(model, out)
 
-            
     w_k_c = model.layers[out].get_weights()[0]  # weights for each filter k for each class c
 
     # the same input
@@ -64,10 +78,87 @@ def calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name,
         attr = list()
         for idx,ts in enumerate(x_vals):
             ts = ts.reshape(1, -1, 1)
-            [conv_out, predicted] = new_feed_forward([ts])
             cas = np.zeros(dtype=np.float64, shape=(conv_out.shape[1]))
             for k, w in enumerate(w_k_c[:,np.argmax(predicted)]): #y_pos.index(y_vals[idx])]): #np.argmax(predicted)
                 cas += w * conv_out[0, :, k] 
+            attr.append([y_vals[idx],orgx_vals[idx],cas])
+        output.append(attr)
+    return output
+
+def calculate_gradcam_attributions(root_dir, archive_name, classifier, dataset_name, data_source, experiment=1, scale='None'):
+
+    #load original data 
+    datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)
+    x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
+
+    # transform to binary labels
+    enc = sklearn.preprocessing.OneHotEncoder()
+    enc.fit(np.concatenate((y_train, y_test), axis=0).reshape(-1, 1))
+    y_train_binary = enc.transform(y_train.reshape(-1, 1)).toarray()
+    
+    orgx_train = x_train
+    orgx_test = x_test
+    
+    x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
+    x_test  = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
+    
+    model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                    f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
+                    f'{classifier}/{data_source}/best_model.hdf5'  
+    #load model 
+    #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+    #                                    + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
+    #                                    + f'best_model.hdf5'
+    
+    model = keras.models.load_model(model_path ,compile=False)
+
+    for layer in model.layers: 
+        print(layer.name)
+    
+    #get gap and output layer
+    #print(CAM_LAYERS[classifier.split("_")[0]])
+
+    gap = CAM_LAYERS[classifier.split("_")[0]]["last_conv_layer"]
+    gap = get_layer_index(model, gap)
+    out = CAM_LAYERS[classifier.split("_")[0]]["task_1"]
+    out = get_layer_index(model, out)
+
+    w_k_c = model.layers[out].get_weights()[0]  # weights for each filter k for each class c
+
+    grad_model = tf.keras.models.Model([model.inputs], [model.layers[gap].output,  model.layers[out].output])
+    output = []
+    # Calculate classwise attribution gap to output
+    for orgx_vals,x_vals,y_vals in [[orgx_train,x_train,y_train],[orgx_test,x_test,y_test]]:
+        attr = list()
+        
+        y_pos = list(np.unique(y_train))
+
+        #conv_out, predicted = new_feed_forward([ts])
+        with tf.GradientTape() as tape:
+            [conv_out, predicted] = grad_model(x_vals) 
+            pred_index = tf.math.argmax(predicted[0])
+            tf.print(pred_index)
+            class_channel = predicted[:, pred_index]
+    
+        grads = tape.gradient(tf.convert_to_tensor(class_channel), tf.convert_to_tensor(conv_out))
+        #tape.gradient(class_channel, conv_out)
+        #tape.gradient(tf.convert_to_tensor(class_channel), tf.convert_to_tensor(conv_out))
+        pooled_grads = tf.reduce_mean(grads, axis=(0))
+
+        tf.print(pooled_grads)
+
+        for idx,ts in enumerate(x_vals):
+            ts = ts.reshape(1, -1, 1)
+            cas = np.zeros(dtype=np.float64, shape=(conv_out.shape[1]))
+            [conv_out, predicted] = grad_model([ts]) 
+            for k, w in enumerate(w_k_c[:,np.argmax(predicted)]): #y_pos.index(y_vals[idx])]): #np.argmax(predicted)
+                cas += w * conv_out[0, :, k] * pooled_grads[:,k]
+            #print(cas, np.mean(cas))
+            cas = cas / np.mean(cas)
+            if scale == 'minmax': 
+                cas = cas - np.min(cas) / (np.max(cas) - np.min(cas))
+            elif scale == 'normalized':
+                cas = norm(cas)
             attr.append([y_vals[idx],orgx_vals[idx],cas])
         output.append(attr)
     return output
@@ -157,17 +248,18 @@ def integrated_gradients(model,
 
 
 def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, 
-                              data_source, datasets_dict = None, task=0, experiment=1):
+                              data_source, datasets_dict = None, task=0, experiment=1, scale='None'):
      
-    with CustomObjectScope({'InstanceNormalization':tfa.layers.InstanceNormalization()}):
-        model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-                        f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
-                        f'{classifier}/{data_source}/last_model.hdf5'     
-        #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
-        #                                + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
-        #                                + f'last_model.hdf5'
-        model =keras.models.load_model(model_path ,compile=False)
-    
+
+    model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                    f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
+                    f'{classifier}/{data_source}/last_model.hdf5'  
+    print(model_path)   
+    #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+    #                                + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
+    #                                + f'last_model.hdf5'
+    model = keras.models.load_model(model_path ,compile=False)
+
     if datasets_dict == None: 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)
         x_train, y_train, x_test, y_test = datasets_dict[dataset_name]
@@ -178,7 +270,6 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
     output = list()
     baseline = tf.zeros(len(x_train[0]))
     
-
     #tf.random.uniform((1,x_train.shape[1]),minval=-1,maxval=1) # tf.zeros(len(x_train[0]))
     y_pos = list(np.unique(y_train))
     for x_vals,y_vals in [[x_train,y_train],[x_test,y_test]]:
@@ -186,25 +277,30 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
         attr = list()
         for idx,ts in enumerate(x_vals):
             series = ts
-            #print(np.argmax(pred[idx]), pred[idx])
             ig_att = integrated_gradients(model,baseline,series.astype('float32'),
                                         np.argmax(pred[idx]),
                                         task=task)
                                         #optimize for true values
                                         #y_pos.index(y_vals[idx]),
+            if scale == 'minmax': 
+                ig_att = minmax_norm(ig_att)
+            if scale == 'normalized': 
+                ig_att = norm(ig_att)
             attr.append([y_vals[idx],x_vals[idx],ig_att])
         output.append(attr)
     return output
 
     
-def create_explanations(attributions, minmax_norm = False):
+def create_explanations(attributions, scaling='None'):
     output = []
     for split in attributions:
         explanations = []
         for ts in split: 
             x_values = ts[1]
-            if minmax_norm:
+            if scaling == 'minmax':
                 attributions = (ts[2] - np.min(ts[2])) / (np.max(ts[2]) - np.min(ts[2]))
+            elif scaling == 'normalized': 
+                pass
             else: 
                 attributions = ts[2]
             explanations.append(np.concatenate((attributions,np.array([x_values])), axis=None))    
