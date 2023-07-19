@@ -20,7 +20,7 @@ from utils.classifiers import fit_classifier
 if os.getenv("COLAB_RELEASE_TAG"):
     print("Google Colab Environment detected")
     root_dir =  "/content/drive/My Drive/master thesis/code/xai-tsc"
-    EPOCHS = 400
+    EPOCHS = 1000
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 else: 
@@ -35,10 +35,10 @@ else:
 
 
 SEED = 0
-DATASET_NAMES = ['GunPoint', 'ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'raw' #minmax
-ITERATIONS = 6
+ITERATIONS = 5
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -138,7 +138,7 @@ if mode == 'experiment_1':
 
         
         for classifier_name in CLASSIFIERS:
-            """
+            
             
             print("Classifier",classifier_name)
         
@@ -164,6 +164,7 @@ if mode == 'experiment_1':
                     print(acc)
                     if best_acc < acc: best_acc = acc; best_model = itr
 
+            """
             best_classifier = f'{classifier_name}_{best_model}'
 
 
@@ -173,14 +174,16 @@ if mode == 'experiment_1':
             exp = create_explanations(att, minmax_norm=False)
             save_explanations(exp, root_dir, archive_name, f'{classifier_name}_cam_raw', dataset_name)
 
+            
             #Create Integrated Gradients Explanations
             #testing purpse
             best_classifier = f'{classifier_name}_{1}'
             att = calculate_ig_attributions(root_dir, archive_name, best_classifier, 
                                             dataset_name, 'original', task=0)
+
             exp = create_explanations(att, minmax_norm=False)
             save_explanations(exp, root_dir, archive_name, f'{classifier_name}_ig_raw', dataset_name)
-            """
+            
             
         
             mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
@@ -228,7 +231,7 @@ if mode == 'experiment_1':
                                                 output_directory, 
                                                 'mse', 1, EPOCHS, BATCH_SIZE)
                             
-
+            """
             
 
 if mode == 'experiment_2': 
