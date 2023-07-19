@@ -136,7 +136,9 @@ if mode == 'experiment_1':
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
 
+        
         for classifier_name in CLASSIFIERS:
+            """
             
             print("Classifier",classifier_name)
         
@@ -178,13 +180,14 @@ if mode == 'experiment_1':
                                             dataset_name, 'original', task=0)
             exp = create_explanations(att, minmax_norm=False)
             save_explanations(exp, root_dir, archive_name, f'{classifier_name}_ig_raw', dataset_name)
-        
+            """
             
         
             mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
 
 
-            for expl_type in ['fcn_ig_raw']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
+            for expl_type in ['resnet_ig_raw']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
+
                 
                 #assert same length for all ts
                 exp_len = len(datasets_dict[0][0])
@@ -192,14 +195,14 @@ if mode == 'experiment_1':
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
 
-                        if 'fcn_mt_conv' not in mtclassifier: 
+                        if 'resnet_mt_ae' not in mtclassifier: 
                             continue
 
                         #check only for same explanation types
                         #avoid pycache
                         if not mtclassifier.startswith('_'):
                             for itr in range(ITERATIONS): 
-                                
+                                if ITERATIONS-1 < itr <= ITERATIONS: continue
                                 mt_classifier = mtclassifier.split('.')[0]
                                 if mt_classifier.split('_')[0] not in expl_type: 
                                     print(mt_classifier.split('_')[0], expl_type, mt_classifier.split('_')[0] not in expl_type )

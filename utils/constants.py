@@ -12,7 +12,7 @@ CAM_LAYERS = {
         'task_2' :  'task_2_output',
     },
     'resnet' : {
-        'gap_layer' :  'activation_8',
+        'last_conv_layer' :  'shared_l33',
         'task_1' :  'task_1_output',
         'task_2' :  'task_2_output', 
     }
