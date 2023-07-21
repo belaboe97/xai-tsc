@@ -51,11 +51,7 @@ def calculate_cam_attributions(root_dir, archive_name, classifier, dataset_name,
     #                                    + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
     #                                    + f'best_model.hdf5'
     
-    model = keras.models.load_model(model_path ,compile=False)
-
-    for layer in model.layers: 
-        print(layer.name)
-    
+    model = keras.models.load_model(model_path ,compile=False)    
     #get gap and output layer
     #print(CAM_LAYERS[classifier.split("_")[0]])
 
@@ -179,7 +175,7 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
 
     model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
                     f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
-                    f'{classifier}/{data_source}/last_model.hdf5'  
+                    f'{classifier}/{data_source}/best_model.hdf5'  
     print(model_path)   
     #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
     #                                + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \

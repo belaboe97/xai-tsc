@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_RESNET_MT_CONV:
+class Classifier_RESNET_MT_NN:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -37,7 +37,6 @@ class Classifier_RESNET_MT_CONV:
 		"""
 		input_layer = keras.layers.Input(input_shape)
 
-		# BLOCK 1
 		# BLOCK 1
 
 		conv_x = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=8, padding='same',  name="shared_l1")(input_layer)
@@ -97,12 +96,17 @@ class Classifier_RESNET_MT_CONV:
 		output_block_3 = keras.layers.add([shortcut_y, conv_z])
 		output_block_3 = keras.layers.Activation('relu',name="shared_l33")(output_block_3)
 
-		
 		# FINAL
-		flatten_layer =  keras.layers.Flatten()(output_block_3)
+	
 		gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
 
-	
+		conv1d = keras.layers.Conv1DTranspose(filters=1, kernel_size=3,padding='same',activation="linear")(output_block_3)
+		conv1d_flatten =  keras.layers.Flatten()(conv1d)
+
+		interm_function_1 = keras.layers.Dense(2*input_shape[1], activation='relu')(conv1d_flatten)
+		interm_function_2 = keras.layers.Dense(2*input_shape[1], activation='relu')(interm_function_1)
+		interm_function_3 = tf.keras.layers.Dense(2*input_shape[1], activation='relu')(interm_function_2)
+
 		"""
 		Specific Output layers: 
 		"""
@@ -110,14 +114,11 @@ class Classifier_RESNET_MT_CONV:
 
 		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
 
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation = "linear", name='task_2_output')(output_block_3)
+		output_layer_2 = keras.layers.Dense(input_shape[1], activation='linear', name='task_2_output')(interm_function_3)
+		
 		#keras.layers.Dense(units=input_shape[0], activation=keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(flatten_layer)
 		#linear
-
-
-		print("SHAPE OUTPUT",output_layer_2.shape)
-
-
+		
 		"""
 		Define model: 
 
@@ -150,7 +151,7 @@ class Classifier_RESNET_MT_CONV:
 
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
 			
-		print("SHAPES", y_train_1.shape, y_train_2.shape)
+
 		"""
 				
 		if not tf.test.is_gpu_available:

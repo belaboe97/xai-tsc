@@ -66,17 +66,22 @@ def create_classifier_mt(classifier_name,
         from classifiers_mtl.fcn import fcn_mt_conv
         return fcn_mt_conv.Classifier_FCN_MT_CONV(output_directory, input_shape, nb_classes, lossf,
                                                         gamma, epochs, batch_size, verbose)
+
+    if classifier_name == 'fcn_mt_nn': 
+        from classifiers_mtl.fcn import fcn_mt_nn
+        return fcn_mt_nn.Classifier_FCN_MT_NN(output_directory, input_shape, nb_classes, lossf,
+                                                        gamma, epochs, batch_size, verbose)
+    
     
     if classifier_name == 'resnet_mt_conv': 
         from classifiers_mtl.resnet import resnet_mt_conv
         return resnet_mt_conv.Classifier_RESNET_MT_CONV(output_directory, input_shape, nb_classes, lossf, 
                                                             gamma, epochs, batch_size, verbose)
     
-
-    if classifier_name == 'fcn_mt_linear': 
-        from legacy_code import fcn_mt_linear
-        return fcn_mt_linear.Classifier_FCN_MT_Linear(output_directory, input_shape, nb_classes, lossf,
-                                                    gamma, epochs, batch_size, verbose)
+    if classifier_name == 'resnet_mt_nn': 
+        from classifiers_mtl.resnet import resnet_mt_nn
+        return resnet_mt_nn.Classifier_RESNET_MT_NN(output_directory, input_shape, nb_classes, lossf, 
+                                                            gamma, epochs, batch_size, verbose)
 
 
     ### EXPERIMENT 3: 

@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 from utils.explanations import integrated_gradients
-
+from utils.explanations import norm 
 
 class Classifier_FCN_MT_AE_ITER:
 
@@ -114,72 +114,63 @@ class Classifier_FCN_MT_AE_ITER:
 		return model 
 
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
-			
-		print("SHAPES", y_train_1.shape, y_train_2.shape)
 
 		for epoch in range(self.epochs):
 			
-			#print(epoch)
-			#print(len(x_train), x_train.shape, len(y_train_1), y_train_1.shape, len(y_train_2),y_train_2.shape)
 
 			batch_size = self.batch_size
 
 			mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
+
+			if  epoch > 150:
+				baseline = tf.zeros(len(x_train[0]))
+				for mode , [xvalues,yvalues] in enumerate([[x_train,y_train_1],[x_val,y_val_1]]):
+					idx = 0
+					pred = self.model.predict(xvalues)
+					for x,y in zip(xvalues,yvalues):
+						series = x.flatten()
+						ig_att = integrated_gradients(self.model,baseline,series.astype('float32'),
+													np.argmax(pred[0][idx]),
+													task=1)
+						if mode == 0: 
+							y_train_2[idx] = norm(ig_att)
+						if mode == 1: 
+							y_val_2[idx] = norm(ig_att)
+						idx += 1
+
+
+
 			start_time = time.time() 
-			if epoch >= 1: 
-				hist = self.model.fit(
-				{'input_1': x_train},
-				{'task_1_output': y_train_1, 'task_2_output': y_train_2},
-				batch_size=mini_batch_size, 
-				verbose=self.verbose, 
-				validation_data=(
-					x_val,
-					{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
-				callbacks=self.callbacks)
+
+			hist = self.model.fit(
+			{'input_1': x_train},
+			{'task_1_output': y_train_1, 'task_2_output': y_train_2},
+			batch_size=mini_batch_size, 
+			verbose=self.verbose, 
+			validation_data=(
+				x_val,
+				{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
+			callbacks=self.callbacks)
 
 
 			# Make predictions using model.predict
 
 			#Conditions  
-			if  True: #epoch > 0 and epoch + 1 % 1 == 0:
+
 
 				"""
 				if epoch % 100 == 0: 
 				self.gamma - 0.25
 				print("Gamma reducded", self.gamma)
 				weights = self.model.get_weights()
-				model.compile( 
-					optimizer = keras.optimizers.Adam(), 
-					loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
-					loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
-					metrics=['accuracy']) 
+
 				self.model.set_weights(weights)
 				print("model weights retrieved and set")
 				"""
 
 				# Calculate classwise attribution gap to output
-				baseline = tf.zeros(len(x_train[0]))
-				for mode , [xvalues,yvalues] in enumerate([[x_train,y_train_1],[x_val,y_val_1]]):
 
-					idx = 0
-					pred = self.model.predict(x_train)
-					for x,y in zip(xvalues,yvalues):#
-						#print("YVALUES",np.argmax(y))
-						#if np.argmax(pred[0][idx]) == np.argmax(y): 
-						series = x.flatten()
-						#print(series.shape,pred[0][idx])
-						#series = x.flatten()
-						ig_att = integrated_gradients(self.model,baseline,series.astype('float32'),
-													np.argmax(pred[0][idx]),
-													task=1)
-						if mode == 0: 
-							y_train_2[idx] = ig_att
-
-						if mode == 1: 
-							y_val_2[idx] = ig_att
-
-						idx += 1
 
 		np.savetxt(self.output_directory+f"test{epoch}_TRAIN", y_train_2, delimiter=',')
 		np.savetxt(self.output_directory+f"test{epoch}_TEST", y_val_2, delimiter=',')	
