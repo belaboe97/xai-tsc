@@ -114,6 +114,9 @@ class Classifier_FCN_MT_AE_ITER:
 		return model 
 
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
+		
+		loss =  []
+		val_loss = [] 
 
 		for epoch in range(self.epochs):
 			
@@ -141,6 +144,7 @@ class Classifier_FCN_MT_AE_ITER:
 
 
 
+
 			start_time = time.time() 
 
 			hist = self.model.fit(
@@ -154,23 +158,12 @@ class Classifier_FCN_MT_AE_ITER:
 			callbacks=self.callbacks)
 
 
-			# Make predictions using model.predict
+			metric = "loss"
+			loss.append(hist.history[metric][0])
+			val_loss.append(hist.history['val_' + metric][0])
 
-			#Conditions  
-
-
-				"""
-				if epoch % 100 == 0: 
-				self.gamma - 0.25
-				print("Gamma reducded", self.gamma)
-				weights = self.model.get_weights()
-
-				self.model.set_weights(weights)
-				print("model weights retrieved and set")
-				"""
-
-				# Calculate classwise attribution gap to output
-
+		np.savetxt(self.output_directory+f"test{epoch}_Loss", loss, delimiter=',')
+		np.savetxt(self.output_directory+f"test{epoch}_Val_Loss", val_loss, delimiter=',')
 
 		np.savetxt(self.output_directory+f"test{epoch}_TRAIN", y_train_2, delimiter=',')
 		np.savetxt(self.output_directory+f"test{epoch}_TEST", y_val_2, delimiter=',')	

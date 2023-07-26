@@ -22,7 +22,7 @@ import pandas as pd
 if os.getenv("COLAB_RELEASE_TAG"):
     print("Google Colab Environment detected")
     root_dir =  "/content/drive/My Drive/master thesis/code/xai-tsc"
-    EPOCHS = 400
+    EPOCHS = 500
     BATCH_SIZE = 16
     print('Epochs',EPOCHS, 'Batch size', BATCH_SIZE)
 else: 
@@ -37,7 +37,7 @@ else:
 
 
 SEED = 0
-DATASET_NAMES = [ 'Beef','ECG200']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['ECG200']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'raw' #minmax
 ITERATIONS = 1
@@ -177,6 +177,7 @@ if mode == 'experiment_1':
 
             print(dataset_name,best_classifier)
 
+            
             att = calculate_cam_attributions(root_dir, archive_name, best_classifier, 
                                             dataset_name, 'original', scale='normalized')
             
@@ -193,12 +194,11 @@ if mode == 'experiment_1':
             exp = create_explanations(att)
             save_explanations(exp, root_dir, archive_name, f'{classifier_name}_ig_norm', dataset_name)
             
-            
-        
+
             mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
 
 
-            for expl_type in ['fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
+            for expl_type in ['fcn_ig_norm', 'resnet_ig_norm']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
                 
                 #Check that explanation already has been made
                 if expl_type.split('_')[0] not in classifier_name:continue 
@@ -208,6 +208,8 @@ if mode == 'experiment_1':
                 datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
+                        
+                        if 'nn' in mtclassifier: continue 
                         #check only for same explanation types
                         #avoid pycache
                         if not mtclassifier.startswith('_'):
@@ -243,13 +245,13 @@ if mode == 'experiment_1':
 if mode == 'experiment_2': 
 
     archive_name = 'ucr'
-    GAMMAS = [0.75]#, 0.5, 0.25]
+    GAMMAS = [0.5]#, 0.5, 0.25]
 
     for dataset_name in DATASET_NAMES: 
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for expl_type in ['fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,
+        for expl_type in ['resnet_ig_supr']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,'fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm'
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])
@@ -360,7 +362,7 @@ if mode == 'experiment_4':
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for expl_type in ['fcn_ig_norm']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:
+        for expl_type in ['fcn_ig_norm']: #,'fcn_cam_raw']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])

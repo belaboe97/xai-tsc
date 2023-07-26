@@ -178,8 +178,7 @@ class Classifier_RESNET_MT_AE_CAS:
 		#output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
 		#linearkeras.layers.LeakyReLU(alpha=0.03)
 		output_layer_2 = keras.layers.Conv1D(filters=input_shape[1], kernel_size=1, padding='same', activation='linear')(output_block_1_dec)
-		output_layer_2 = keras.layers.Flatten()(output_layer_2)
-		concat_input_2 = keras.layers.Concatenate()([output_layer_2, output_layer_1])
+
 		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear", name='task_2_output')(concat_input_2)
 		"""
 		Specific Output layers: 
