@@ -111,6 +111,16 @@ def create_classifier_mt(classifier_name,
         return fcn_mt_ae_iter.Classifier_FCN_MT_AE_ITER(output_directory, input_shape, nb_classes, lossf, 
                                                             gamma, epochs, batch_size, verbose)
     
+    if classifier_name == 'resnet_mt_ae_iter': 
+        from classifiers_mtl_iterative.resnet import resnet_mt_ae_iter
+        return resnet_mt_ae_iter.Classifier_RESNET_MT_AE_ITER(output_directory, input_shape, nb_classes, lossf, 
+                                                            gamma, epochs, batch_size, verbose)
+    
+    if classifier_name == 'resnet_mt_nn_iter': 
+        from classifiers_mtl_iterative.resnet import resnet_mt_nn_iter
+        return resnet_mt_nn_iter.Classifier_RESNET_MT_NN_ITER(output_directory, input_shape, nb_classes, lossf, 
+                                                            gamma, epochs, batch_size, verbose)
+    
     if classifier_name == 'fcn_mt_ae_iter_freeze': 
         from classifiers_mtl_iterative.fcn import fcn_mt_ae_iter_freeze
         return fcn_mt_ae_iter_freeze.Classifier_FCN_MT_AE_ITER_FREEZE(output_directory, input_shape, nb_classes, lossf, 

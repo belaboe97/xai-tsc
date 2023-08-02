@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_RESNET_MT_NN:
+class Classifier_RESNET_MT_NN_ITER:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -116,10 +116,14 @@ class Classifier_RESNET_MT_NN:
 		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
 
 		output_layer_2 = keras.layers.Dense(input_shape[0], activation='linear', name='task_2_output')(interm_function_3)
-		
+
 		#keras.layers.Dense(units=input_shape[0], activation=keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(flatten_layer)
 		#linear
-		
+
+
+		print("SHAPE OUTPUT",output_layer_2.shape)
+
+
 		"""
 		Define model: 
 
@@ -150,9 +154,12 @@ class Classifier_RESNET_MT_NN:
 
 		return model 
 
-	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
-			
 
+	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
+
+		from utils.explanations import norm, integrated_gradients	
+
+		print("SHAPES", y_train_1.shape, y_train_2.shape)
 		"""
 				
 		if not tf.test.is_gpu_available:
@@ -168,17 +175,57 @@ class Classifier_RESNET_MT_NN:
 
 		start_time = time.time() 
 
-		
-		hist = self.model.fit(
-		{'input_1': x_train},
-        {'task_1_output': y_train_1, 'task_2_output': y_train_2},
-		batch_size=mini_batch_size, 
-		epochs=self.epochs,
-		verbose=self.verbose, 
-		validation_data=(
-			x_val,
-			{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
-		callbacks=self.callbacks)
+		loss =  []
+		val_loss = [] 
+
+		for epoch in range(self.epochs):
+			
+
+			batch_size = self.batch_size
+
+			mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
+
+
+			if  epoch > 200 and epoch % 20==0:
+				baseline = tf.zeros(len(x_train[0]))
+				for mode , [xvalues,yvalues] in enumerate([[x_train,y_train_1],[x_val,y_val_1]]):
+					idx = 0
+					pred = self.model.predict(xvalues)
+					for x,y in zip(xvalues,yvalues):
+						series = x.flatten()
+						ig_att = integrated_gradients(self.model,baseline,series.astype('float32'),
+													np.argmax(pred[0][idx]),
+													task=1)
+						if mode == 0: 
+							y_train_2[idx] = norm(ig_att)
+						if mode == 1: 
+							y_val_2[idx] = norm(ig_att)
+						idx += 1
+
+
+			start_time = time.time() 
+
+			hist = self.model.fit(
+			{'input_1': x_train},
+			{'task_1_output': y_train_1, 'task_2_output': y_train_2},
+			batch_size=mini_batch_size, 
+			verbose=self.verbose, 
+			validation_data=(
+				x_val,
+				{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
+			callbacks=self.callbacks)
+
+
+			metric = "loss"
+			loss.append(hist.history[metric][0])
+			val_loss.append(hist.history['val_' + metric][0])
+
+		np.savetxt(self.output_directory+f"test{epoch}_Loss", loss, delimiter=',')
+		np.savetxt(self.output_directory+f"test{epoch}_Val_Loss", val_loss, delimiter=',')
+
+		np.savetxt(self.output_directory+f"test{epoch}_TRAIN", y_train_2, delimiter=',')
+		np.savetxt(self.output_directory+f"test{epoch}_TEST", y_val_2, delimiter=',')	
+
 		
 		duration = time.time() - start_time
 

@@ -52,6 +52,7 @@ class Classifier_FCN_MT_NN:
 		"""
 		input_layer = keras.layers.Input(input_shape)
 
+
 		conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same',trainable=True, name="shared_l1")(input_layer)
 		conv1 = keras.layers.BatchNormalization(trainable=True, name="shared_l2")(conv1)
 		conv1 = keras.layers.Activation(activation='relu',trainable=True, name="shared_l3")(conv1)
@@ -71,9 +72,9 @@ class Classifier_FCN_MT_NN:
 		conv1d = keras.layers.Conv1DTranspose(filters=1, kernel_size=3,padding='same',activation="linear")(conv3)
 		conv1d_flatten =  keras.layers.Flatten()(conv1d)
 
-		interm_function_1 = keras.layers.Dense(2*input_shape[1], activation='relu')(conv1d_flatten)
-		interm_function_2 = keras.layers.Dense(2*input_shape[1], activation='relu')(interm_function_1)
-		interm_function_3 = tf.keras.layers.Dense(2*input_shape[1], activation='relu')(interm_function_2)
+		interm_function_1 = keras.layers.Dense(2*input_shape[0], activation='relu')(conv1d_flatten)
+		interm_function_2 = keras.layers.Dense(2*input_shape[0], activation='relu')(interm_function_1)
+		interm_function_3 = tf.keras.layers.Dense(2*input_shape[0], activation='relu')(interm_function_2)
 
 
 		"""
@@ -81,7 +82,7 @@ class Classifier_FCN_MT_NN:
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output', trainable=True)(output_for_task_1)
 
-		output_layer_2 = keras.layers.Dense(input_shape[1], activation='linear', name='task_2_output')(interm_function_3)
+		output_layer_2 = keras.layers.Dense(input_shape[0], activation='linear', name='task_2_output')(interm_function_3)
 
 		#output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear', name='task_2_output')(conv6)
 

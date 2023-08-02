@@ -10,7 +10,7 @@ import os
 from utils.utils import save_logs_mtl
 from utils.utils import calculate_metrics
 
-class Classifier_RESNET_MT_AE_CAS:
+class Classifier_RESNET_MT_AE_ITER:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -35,19 +35,10 @@ class Classifier_RESNET_MT_AE_CAS:
 		"""
 		Main branch, shared features. 
 		"""
-		n_feature_maps = 64
-		
-		"""
-		Main branch, shared features. 
-		"""
-		n_feature_maps = 64
-		
-		"""
-		Main branch, shared features. 
-		"""
 		input_layer = keras.layers.Input(input_shape)
 
 		# BLOCK 1
+
 
 		conv_x = keras.layers.Conv1D(filters=n_feature_maps, kernel_size=8, padding='same')(input_layer)
 		conv_x = keras.layers.BatchNormalization()(conv_x)
@@ -164,39 +155,20 @@ class Classifier_RESNET_MT_AE_CAS:
 		output_block_1_dec = keras.layers.add([shortcut_y_dec, conv_x_dec])
 		output_block_1_dec = keras.layers.Activation('relu')(output_block_1_dec)
 
-		# FINAL
-
+		
 		gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
 
 	
 		"""
 		Specific Output layers: 
 		"""
+		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 
-		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output',trainable=False)(gap_layer)
+		#interm_layer_2 = keras.layers.Dense(activation='sigmoid')(gap_layer)
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation = "linear", name='task_2_output')(output_block_1_dec)
 
-		#output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
-		#linearkeras.layers.LeakyReLU(alpha=0.03)
-		output_layer_2 = keras.layers.Conv1D(filters=input_shape[1], kernel_size=1, padding='same', activation='linear')(output_block_1_dec)
-		output_layer_2 = keras.layers.Flatten()(output_layer_2)
-		concat_input_2 = keras.layers.Concatenate()([output_layer_2, output_layer_1])
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="relu")(concat_input_2)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear", name='task_2_output')(output_layer_2)
-
-
-		"""
-		Specific Output layers: 
-		"""
-		"""
-		output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear")(conv3)
-		output_layer_2 = keras.layers.Flatten()(output_layer_2)
-		concat_output_1 = keras.layers.Concatenate(trainable=False)([gap_layer, output_layer_1])
-		output_layer_1_resized = keras.layers.Dense(units=output_layer_2.shape[1])(concat_output_1)
-		tf.stop_gradient(output_layer_1_resized)
-		add_input_2 = keras.layers.Add()([output_layer_2,output_layer_1_resized])
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear", name='task_2_output')(add_input_2)
-		"""
-
+		#keras.layers.Dense(units=input_shape[0], activation=keras.layers.LeakyReLU(alpha=0.03), name='task_2_output')(flatten_layer)
+		#linear
 
 		print("SHAPE OUTPUT",output_layer_2.shape)
 
@@ -232,7 +204,9 @@ class Classifier_RESNET_MT_AE_CAS:
 		return model 
 
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
-			
+
+		from utils.explanations import norm, integrated_gradients	
+
 		print("SHAPES", y_train_1.shape, y_train_2.shape)
 		"""
 				
@@ -249,17 +223,57 @@ class Classifier_RESNET_MT_AE_CAS:
 
 		start_time = time.time() 
 
-		
-		hist = self.model.fit(
-		{'input_1': x_train},
-        {'task_1_output': y_train_1, 'task_2_output': y_train_2},
-		batch_size=mini_batch_size, 
-		epochs=self.epochs,
-		verbose=self.verbose, 
-		validation_data=(
-			x_val,
-			{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
-		callbacks=self.callbacks)
+		loss =  []
+		val_loss = [] 
+
+		for epoch in range(self.epochs):
+			
+
+			batch_size = self.batch_size
+
+			mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
+
+
+			if  epoch > 200 and epoch % 20==0:
+				baseline = tf.zeros(len(x_train[0]))
+				for mode , [xvalues,yvalues] in enumerate([[x_train,y_train_1],[x_val,y_val_1]]):
+					idx = 0
+					pred = self.model.predict(xvalues)
+					for x,y in zip(xvalues,yvalues):
+						series = x.flatten()
+						ig_att = integrated_gradients(self.model,baseline,series.astype('float32'),
+													np.argmax(pred[0][idx]),
+													task=1)
+						if mode == 0: 
+							y_train_2[idx] = norm(ig_att)
+						if mode == 1: 
+							y_val_2[idx] = norm(ig_att)
+						idx += 1
+
+
+			start_time = time.time() 
+
+			hist = self.model.fit(
+			{'input_1': x_train},
+			{'task_1_output': y_train_1, 'task_2_output': y_train_2},
+			batch_size=mini_batch_size, 
+			verbose=self.verbose, 
+			validation_data=(
+				x_val,
+				{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
+			callbacks=self.callbacks)
+
+
+			metric = "loss"
+			loss.append(hist.history[metric][0])
+			val_loss.append(hist.history['val_' + metric][0])
+
+		np.savetxt(self.output_directory+f"test{epoch}_Loss", loss, delimiter=',')
+		np.savetxt(self.output_directory+f"test{epoch}_Val_Loss", val_loss, delimiter=',')
+
+		np.savetxt(self.output_directory+f"test{epoch}_TRAIN", y_train_2, delimiter=',')
+		np.savetxt(self.output_directory+f"test{epoch}_TEST", y_val_2, delimiter=',')	
+
 		
 		duration = time.time() - start_time
 
