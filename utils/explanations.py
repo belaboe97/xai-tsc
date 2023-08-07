@@ -212,6 +212,56 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
         output.append(attr)
     return output
 
+
+
+def calculate_shap_attributions(root_dir, archive_name, classifier, dataset_name, 
+                              data_source, datasets_dict = None, task=0, experiment=1, scale='None'):
+     
+    import shap
+    model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                    f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
+                    f'{classifier}/{data_source}/best_model.hdf5'  
+    print(model_path)   
+    #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+    #                                + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \
+    #                                + f'last_model.hdf5'
+    x_train,x_test,y_train,y_test = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
+    #Load model 
+    model_link = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
+                    f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
+                    f'{classifier}/{data_source}/best_model.hdf5'  
+    
+    loaded_model = keras.models.load_model(model_link ,compile=False)
+    #get random background data sample
+    background_data = np.array(x_train[np.random.randint(0,x_train.shape[0],10)])
+    #init Permutation Sample
+    e = shap.PermutationExplainer(loaded_model,background_data, nsamples=1000)
+    #Calculate Shap values for trian data
+    #>>>train
+    train_shap_val = np.array(e.shap_values(x_train))
+    #>>>test
+    test_shap_val = np.array(e.shap_values(y_train))
+    #store output 1 > train_data , 2 > test_data
+    #get format yval,xval,att
+    output = []
+    for ii, [x_vals,y_vals] in enumerate([[x_train,x_test],[y_train,y_test]]):
+        att = train_shap_val if ii == 0 else test_shap_val
+        pred = loaded_model.predict(x_vals) if task == 0 else loaded_model.predict(x_vals)[0]
+        attr = list()
+        print(len(x_vals))
+        for idx,ts in enumerate(x_vals):
+            if scale == 'minmax': 
+                # get shap values for predicted class > minmax scaling
+                shap_att = minmax_norm(att[idx,:, np.argmax(pred[idx])])
+            if scale == 'normalized': 
+                # get shap valuues for predicted class > L2 normalized
+                shap_att = norm(att[idx,:,np.argmax(pred[idx])])
+            attr.append([y_vals[idx],x_vals[idx],shap_att])
+        output.append(attr)
+
+    return output
+
+
     
 def create_explanations(attributions, scaling='None'):
     output = []

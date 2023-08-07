@@ -1,0 +1,4 @@
+,linear_output,tanh_output,conv1d_output,build_deep_nn,build_encoder
+min_mse_0,,,,0.01939227245748043,0.011969746090471745
+min_epo_0,,,,13.0,0.0
+mean_corr_test_0,,,,-0.13179150314768104,-0.16613268521571795
