@@ -37,10 +37,10 @@ else:
 
 
 SEED = 0
-DATASET_NAMES = ['GunPoint']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['ECG200', 'GunPoint', 'Beef']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'raw' #minmax
-ITERATIONS = 2
+ITERATIONS = 1
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -197,7 +197,7 @@ if mode == 'experiment_1':
             """
             mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
 
-            for expl_type in ['fcn_shap_norm']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
+            for expl_type in ['fcn_ig_norm', 'resnet_ig_norm']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
                 
                 #Check that explanation already has been made
                 if expl_type.split('_')[0] not in classifier_name:continue 
@@ -249,7 +249,7 @@ if mode == 'experiment_2':
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for expl_type in ['fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,'fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm'
+        for expl_type in ['fcn_shap_norm']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,'fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm'
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])

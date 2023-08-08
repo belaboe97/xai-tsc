@@ -2,9 +2,10 @@ import numpy as np
 from utils.utils import create_directory
 from utils.utils import read_dataset
 from utils.constants import CAM_LAYERS
+#import shap
 import tensorflow.keras as keras
-from keras.utils import CustomObjectScope
-import tensorflow_addons as tfa
+#from keras.utils import CustomObjectScope
+#import tensorflow_addons as tfa
 import sklearn
 from sklearn.preprocessing import normalize
 
@@ -216,8 +217,7 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
 
 def calculate_shap_attributions(root_dir, archive_name, classifier, dataset_name, 
                               data_source, datasets_dict = None, task=0, experiment=1, scale='None'):
-     
-    import shap
+    
     model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
                     f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
                     f'{classifier}/{data_source}/best_model.hdf5'  
