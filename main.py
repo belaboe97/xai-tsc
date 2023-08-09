@@ -243,13 +243,13 @@ if mode == 'experiment_1':
 if mode == 'experiment_2': 
 
     archive_name = 'ucr'
-    GAMMAS = [0.5]#, 0.5, 0.25]
+    GAMMAS = [0.75, 0.5, 0.25]#, 0.5, 0.25]
 
     for dataset_name in DATASET_NAMES: 
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for expl_type in ['fcn_shap_norm']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,'fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm'
+        for expl_type in ['fcn_ig_norm','resnet_ig_norm']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,'fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm'
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])
