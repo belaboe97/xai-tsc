@@ -174,7 +174,7 @@ class Classifier_RESNET_MT_AE:
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(gap_layer)
 		#output_layer_2 = keras.layers.Dense(units=input_shape[0], activation='linear', name='task_2_output')(gap_layer)
 		#linearkeras.layers.LeakyReLU(alpha=0.03)
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=1, padding='same', activation='linear',name='task_2_output')(output_block_1_dec)
+		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='linear',name='task_2_output')(output_block_1_dec)
 		#output_layer_2 = tf.keras.layers.Multiply(name='task_2_output')([output_layer_2, constants])
 		#keras.layers.LeakyReLU(alpha=0.03)
 		#activation='linear'

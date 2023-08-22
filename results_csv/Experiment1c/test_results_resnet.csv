@@ -1,0 +1,10 @@
+,model,expl_type,pm1,mm1
+GunPoint_resnet_mt_conv,resnet_mt_conv,ig_norm,0.8620194773303008,0.001813506596521991
+GunPoint_resnet_mt_ae,resnet_mt_ae,ig_norm,0.8811134167035384,0.0014633664224127827
+GunPoint_resnet_mt_nn,resnet_mt_nn,ig_norm,0.5849945148253201,0.004028499258237455
+Beef_resnet_mt_conv,resnet_mt_conv,ig_norm,0.25803788479608913,0.0022126369400737238
+Beef_resnet_mt_ae,resnet_mt_ae,ig_norm,0.3788159807282237,0.002242066684738224
+Beef_resnet_mt_nn,resnet_mt_nn,ig_norm,0.39147378951894163,0.0018046653923205172
+ECG200_resnet_mt_conv,resnet_mt_conv,ig_norm,0.6225504588583144,0.007841174771058267
+ECG200_resnet_mt_ae,resnet_mt_ae,ig_norm,0.6322964685767891,0.007160835858598333
+ECG200_resnet_mt_nn,resnet_mt_nn,ig_norm,0.5827864079259648,0.006344906510210513

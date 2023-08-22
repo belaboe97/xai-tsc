@@ -124,7 +124,7 @@ class Classifier_FCN_MT_AE_ITER:
 			mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
 
-			if  epoch > 150 and epoch % 50 == 0:
+			if  epoch > 150 and epoch % 5:
 				baseline = tf.zeros(len(x_train[0]))
 				for mode , [xvalues,yvalues] in enumerate([[x_train,y_train_1],[x_val,y_val_1]]):
 					idx = 0

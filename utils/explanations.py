@@ -8,6 +8,7 @@ import tensorflow.keras as keras
 #import tensorflow_addons as tfa
 import sklearn
 from sklearn.preprocessing import normalize
+from scipy.special import softmax
 
 import os
 
@@ -209,6 +210,8 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
                 ig_att = minmax_norm(ig_att)
             if scale == 'normalized': 
                 ig_att = norm(ig_att)
+            if scale == 'softmax': 
+                ig_att = softmax(ig_att)
             attr.append([y_vals[idx],x_vals[idx],ig_att])
         output.append(attr)
     return output

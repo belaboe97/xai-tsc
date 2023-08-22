@@ -37,10 +37,10 @@ else:
 
 
 SEED = 0
-DATASET_NAMES = ['ECG200', 'GunPoint', 'Beef']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['GunPoint']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
-DATASCALING = 'raw' #minmax
-ITERATIONS = 1
+DATASCALING = 'norm' #minmax
+ITERATIONS = 5
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -171,6 +171,8 @@ if mode == 'experiment_1':
                 acc = pd.read_csv(f'./results/ucr/{dataset_name}/experiment_1/{classifier_name}/{classifier_name}_{itr}/original/df_best_model.csv')["best_model_val_acc"].values[0]
                 if acc > best_acc: best_acc = acc; best_model=itr
 
+
+            best_model = 1
             # Create Explanations for best performing model 
             best_classifier = f'{classifier_name}_{best_model}'
 
@@ -182,20 +184,30 @@ if mode == 'experiment_1':
             
             exp = create_explanations(att)
             save_explanations(exp, root_dir, archive_name, f'{classifier_name}_cam_norm', dataset_name)
-
+        
             
             #Create Integrated Gradients Explanations
             #testing purpse
+
+
             best_classifier = f'{classifier_name}_{1}'
             att = calculate_ig_attributions(root_dir, archive_name, best_classifier, 
                                             dataset_name, 'original', task=0, scale='normalized')
 
             exp = create_explanations(att)
             save_explanations(exp, root_dir, archive_name, f'{classifier_name}_ig_norm', dataset_name)
-            
 
             """
+            best_classifier = f'{classifier_name}_{1}'
+            att = calculate_ig_attributions(root_dir, archive_name, best_classifier, 
+                                            dataset_name, 'original', task=0, scale='softmax')
+
+            exp = create_explanations(att)
+            save_explanations(exp, root_dir, archive_name, f'{classifier_name}_ig_softmax', dataset_name)
+
             mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
+
+            """
 
             for expl_type in ['fcn_ig_norm', 'resnet_ig_norm']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
                 
@@ -238,18 +250,18 @@ if mode == 'experiment_1':
                                                 'mse', 0, EPOCHS, BATCH_SIZE)
                             
 
-            
+            """
 
 if mode == 'experiment_2': 
 
     archive_name = 'ucr'
-    GAMMAS = [0.75, 0.5, 0.25]#, 0.5, 0.25]
+    GAMMAS = [0.5]#0.75, 0.5, 0.25]#, 0.5, 0.25]
 
     for dataset_name in DATASET_NAMES: 
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for expl_type in ['fcn_ig_norm','resnet_ig_norm']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,'fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm'
+        for expl_type in ['fcn_ig_softmax']:#'resnet_ig_norm']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:,'fcn_cam_norm', 'fcn_ig_norm', 'resnet_cam_norm', 'resnet_ig_norm'
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])
@@ -258,12 +270,13 @@ if mode == 'experiment_2':
                 
                 mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
 
+
                 #assert same length for all ts
                 exp_len = len(datasets_dict[0][0])
                 datasets_dict_2 = read_dataset(root_dir, archive_name, dataset_name, expl_type, exp_len)[dataset_name]                    
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
-                        
+                        if 'mt_ae' not in mtclassifier: continue
                         #check only for same explanation types
                         #avoid pycache
                         if not mtclassifier.startswith('_'): 
@@ -291,7 +304,9 @@ if mode == 'experiment_2':
                                         create_directory(output_directory)
 
                                         fit_classifier(mt_classifier, 'multitask', datasets_dict, datasets_dict_2, output_directory, 
-                                                    'mse', gamma, EPOCHS, BATCH_SIZE)
+                                                    'mse', gamma, EPOCHS, BATCH_SIZE) # mse #import matplotlib.pyplot as plt 
+
+
 
 
 
@@ -362,7 +377,8 @@ if mode == 'experiment_4':
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for expl_type in ['resnet_ig_norm']: #,'fcn_cam_raw']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:
+        for expl_type in ['fcn_ig_norm']: #,'fcn_cam_raw']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:
+            
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])
@@ -378,7 +394,7 @@ if mode == 'experiment_4':
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
                         
-                        if 'mt_nn' not in mtclassifier or "freeze" in mtclassifier or 'fcn' in mtclassifier:  
+                        if 'mt_ae' not in mtclassifier or "freeze" in mtclassifier or 'resnet' in mtclassifier:  
                             continue
                         #check only for same explanation types
                         #avoid pycache

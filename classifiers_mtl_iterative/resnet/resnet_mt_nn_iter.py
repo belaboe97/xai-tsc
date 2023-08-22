@@ -101,10 +101,9 @@ class Classifier_RESNET_MT_NN_ITER:
 	
 		gap_layer = keras.layers.GlobalAveragePooling1D()(output_block_3)
 
-		conv1d = keras.layers.Conv1DTranspose(filters=1, kernel_size=3,padding='same',activation="linear")(output_block_3)
-		conv1d_flatten =  keras.layers.Flatten()(conv1d)
+		flatten =  keras.layers.Flatten()(output_block_3)
 
-		interm_function_1 = keras.layers.Dense(2*input_shape[0], activation='relu')(conv1d_flatten)
+		interm_function_1 = keras.layers.Dense(2*input_shape[0], activation='relu')(flatten)
 		interm_function_2 = keras.layers.Dense(2*input_shape[0], activation='relu')(interm_function_1)
 		interm_function_3 = tf.keras.layers.Dense(2*input_shape[0], activation='relu')(interm_function_2)
 
