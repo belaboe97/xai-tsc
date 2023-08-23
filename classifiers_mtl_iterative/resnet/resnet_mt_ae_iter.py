@@ -214,7 +214,9 @@ class Classifier_RESNET_MT_AE_ITER:
 			print('error')
 			exit()
 		"""
-
+		updated_epochs  = []
+		m3_score_train = []
+		m3_score_test = []
 		#x_val and y_val are only used to monitor the test loss and NOT for training  
 
 		batch_size = self.batch_size
@@ -232,9 +234,11 @@ class Classifier_RESNET_MT_AE_ITER:
 			batch_size = self.batch_size
 
 			mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
-
-
+			
 			if  epoch > 200 and epoch % 20==0:
+				y_train_2_old = y_train_2 
+				y_val_2_old = y_val_2
+
 				baseline = tf.zeros(len(x_train[0]))
 				for mode , [xvalues,yvalues] in enumerate([[x_train,y_train_1],[x_val,y_val_1]]):
 					idx = 0
@@ -249,6 +253,18 @@ class Classifier_RESNET_MT_AE_ITER:
 						if mode == 1: 
 							y_val_2[idx] = norm(ig_att)
 						idx += 1
+
+				mean_train_corr = 0 
+				for ts in len(y_train_2): 
+					mean_train_corr += np.corrcoef(y_train_2_old[ts],y_train_2[ts])[0,1]
+				
+				mean_test_corr = 0 
+				for ts in len(y_train_2): 
+					mean_test_corr += np.corrcoef(y_val_2_old[ts],y_val_2[ts])[0,1]
+
+				updated_epochs.append(epoch)
+				m3_score_train.append(mean_train_corr / len(y_train_2))
+				m3_score_test.append(mean_train_corr / len(y_val_2))
 
 
 			start_time = time.time() 
@@ -267,6 +283,9 @@ class Classifier_RESNET_MT_AE_ITER:
 			metric = "loss"
 			loss.append(hist.history[metric][0])
 			val_loss.append(hist.history['val_' + metric][0])
+
+		np.savetxt(self.output_directory+f"m3_change_train", m3_score_train, delimiter=',')
+		np.savetxt(self.output_directory+f"m3_change_test", m3_score_test, delimiter=',')
 
 		np.savetxt(self.output_directory+f"test{epoch}_Loss", loss, delimiter=',')
 		np.savetxt(self.output_directory+f"test{epoch}_Val_Loss", val_loss, delimiter=',')

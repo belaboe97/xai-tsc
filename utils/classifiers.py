@@ -131,6 +131,12 @@ def create_classifier_mt(classifier_name,
         return fcn_mt_conv_iter.Classifier_FCN_MT_CONV_ITER(output_directory, input_shape, nb_classes, lossf,
                                                         gamma, epochs, batch_size, verbose)
     
+    if classifier_name == 'fcn_mt_nn_iter': 
+        from classifiers_mtl_iterative.fcn import fcn_mt_nn_iter
+        return fcn_mt_nn_iter.Classifier_FCN_MT_NN_ITER(output_directory, input_shape, nb_classes, lossf,
+                                                        gamma, epochs, batch_size, verbose)
+
+
 def fit_classifier(classifier_name, mode, datasets_dict, datasets_dict_2, 
                    output_directory, lossf, gamma, epochs, batch_size):
     

@@ -70,9 +70,6 @@ class Classifier_FCN_MT_AE_ITER:
 		conv6 = keras.layers.BatchNormalization()(conv6)
 		conv6 = keras.layers.Activation('relu')(conv6)
 
-		#print("Conv6",conv6.shape)
-
-		#decoder = keras.Model(decoder_input, decoder_output, name="decoder")
 
 		"""
 		Specific Output layers: 
@@ -84,13 +81,12 @@ class Classifier_FCN_MT_AE_ITER:
 		#linear
 		"""
 		Define model: 
-
 		"""
 
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
 		model.compile(
-			optimizer = keras.optimizers.Adam(), 
+			optimizer = keras.optimizers.Adam(learning_rate=0.0001),#learning_rate=0.0001 
 			loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) 
@@ -111,37 +107,66 @@ class Classifier_FCN_MT_AE_ITER:
 
 		return model 
 
+
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
-		
-		loss =  []
-		val_loss = [] 
 
+		#hardcoded annealing process for 500 epochs
+		annealing = [200,220,240,260, 280, *np.arange(300,350,10), *(np.arange(350,380,5)), *(np.arange(380,390,2)),*(np.arange(390,500,1))]
+		#loss and validation loss
+		loss =  []; val_loss = []; acc = []; val_acc= []
+		#measure m1 and m3 score
+		updated_epochs  = []
+		m1_score_train = []
+		m1_score_test = []
+		#m3 score is the lagged score from t and t-1
+		m3_score_train = []
+		m3_score_test = []
+		#set batchsize
+		batch_size = self.batch_size
+		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
+		#track time 
+		start_time = time.time() 
 		for epoch in range(self.epochs):
-			
-
-			batch_size = self.batch_size
-
-			mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
-
-
-			if  epoch > 150 and epoch % 50 == 0:
+			if epoch  > 199 and epoch % 20 == 0: #in annealing:  
+				# Update with integrated Gradients
 				baseline = tf.zeros(len(x_train[0]))
+				y_train_2_old = y_train_2.copy()
+				y_val_2_old = y_val_2.copy()
 				for mode , [xvalues,yvalues] in enumerate([[x_train,y_train_1],[x_val,y_val_1]]):
 					idx = 0
 					pred = self.model.predict(xvalues)
 					for x,y in zip(xvalues,yvalues):
 						series = x.flatten()
-						ig_att = integrated_gradients(self.model,baseline,series.astype('float32'),
-													np.argmax(pred[0][idx]),
-													task=1)
-						if mode == 0: 
-							y_train_2[idx] = norm(ig_att)
-						if mode == 1: 
-							y_val_2[idx] = norm(ig_att)
+						ig_att = integrated_gradients(self.model,baseline,series.astype('float32'),np.argmax(pred[0][idx]),task=1)
+						#update train and test values
+						if mode == 0: y_train_2[idx] = norm(ig_att)
+						#update test values 
+						if mode == 1: y_val_2[idx] = norm(ig_att)
 						idx += 1
-
-			start_time = time.time() 
-
+					#calucalte scores
+					m1_score = 0
+					m3_score = 0
+					if mode == 0:
+						for ts in range(len(y_train_2)): 
+							m1_score += np.corrcoef(pred[1][ts].flatten(),y_train_2[ts])[0,1]
+							m3_score += np.corrcoef(y_train_2_old[ts],y_train_2[ts])[0,1]
+						m1_score /= len(y_train_2)
+						m3_score /= len(y_train_2)
+						m1_score_train.append(m1_score)
+						m3_score_train.append(m3_score)
+						print("m1_train",m1_score, "m3_train", m3_score )
+					if mode == 1: 
+						for ts in range(len(y_val_2)): 
+							m1_score += np.corrcoef(pred[1][ts].flatten(),y_val_2[ts])[0,1]
+							m3_score += np.corrcoef(y_val_2_old[ts],y_val_2[ts])[0,1]
+						m1_score /= len(y_val_2)
+						m3_score /= len(y_val_2)
+						m1_score_test.append(m1_score)
+						m3_score_test.append(m3_score)
+						print("m1_test",m1_score, "m3_test", m3_score)
+				#keep track of epochs updating the labeled data
+				updated_epochs.append(epoch)
+			#fit model
 			hist = self.model.fit(
 			{'input_1': x_train},
 			{'task_1_output': y_train_1, 'task_2_output': y_train_2},
@@ -151,42 +176,46 @@ class Classifier_FCN_MT_AE_ITER:
 				x_val,
 				{'task_1_output': y_val_1, 'task_2_output': y_val_2}), 
 			callbacks=self.callbacks)
-
-
 			metric = "loss"
+			# keep track of metrics
 			loss.append(hist.history[metric][0])
 			val_loss.append(hist.history['val_' + metric][0])
+			acc.append(hist.history["task_1_output_accuracy"][0])
+			val_acc.append(hist.history["val_task_1_output_accuracy"][0])
 
-		np.savetxt(self.output_directory+f"test{epoch}_Loss", loss, delimiter=',')
-		np.savetxt(self.output_directory+f"test{epoch}_Val_Loss", val_loss, delimiter=',')
-
-		np.savetxt(self.output_directory+f"test{epoch}_TRAIN", y_train_2, delimiter=',')
-		np.savetxt(self.output_directory+f"test{epoch}_TEST", y_val_2, delimiter=',')	
-
-		#print(len(x_train), x_train.shape, len(y_train_1), y_train_1.shape, len(y_train_2),y_train_2.shape)
-
-		#create_directory(dir_path)
-			
+		#save update epochs 
+		np.savetxt(self.output_directory+f"epochs_update", updated_epochs, delimiter=',')
+		# save custom scores 
+		np.savetxt(self.output_directory+f"m1_score_train", m1_score_train, delimiter=',')
+		np.savetxt(self.output_directory+f"m1_score_test", m1_score_test, delimiter=',')
+		np.savetxt(self.output_directory+f"m3_score_train", m3_score_train, delimiter=',')
+		np.savetxt(self.output_directory+f"m3_score_test", m3_score_test, delimiter=',')
+		#save validation scores 
+		np.savetxt(self.output_directory+f"{epoch}_Loss", loss, delimiter=',')
+		np.savetxt(self.output_directory+f"{epoch}_Val_Loss", val_loss, delimiter=',')
+		np.savetxt(self.output_directory+f"{epoch}_acc", acc, delimiter=',')
+		np.savetxt(self.output_directory+f"{epoch}_val_acc", val_acc, delimiter=',')
+		#sav t-1 last ig attributions
+		np.savetxt(self.output_directory+f"{epoch}_ig_train", y_train_2, delimiter=',')
+		np.savetxt(self.output_directory+f"{epoch}_ig_test", y_val_2, delimiter=',')	
+	
+		#save duration
 		duration = time.time() - start_time
-
+		#save last model 
 		self.model.save(self.output_directory+'last_model.hdf5')
-		
+		#save best model == last model
 		if os.getenv("COLAB_RELEASE_TAG"):
 			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
 		else:
 			model = keras.models.load_model(self.output_directory+'best_model.hdf5', compile=False)
-
 		# convert the predicted from binary to integer 
 		# Multitask output 
 		y_pred = model.predict(x_val)
-
 		#Predictions for task1 and task2
 		y_pred_1 = np.argmax(y_pred[0] , axis=1)
 		y_pred_2 = np.argmax(y_pred[1] , axis=1)
-
 		#print(y_pred_1.shape, y_pred_1, y_pred_2)
 		save_logs_mtl(self.output_directory, hist, y_pred_1, y_pred_2, y_true_1, y_true_2, duration)
-
 		keras.backend.clear_session()
 
 	def predict(self, x_test, y_true,x_train,y_train,y_test,return_df_metrics = True):

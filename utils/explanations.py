@@ -172,12 +172,13 @@ def integrated_gradients(model,
 
 
 def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name, 
-                              data_source, datasets_dict = None, task=0, experiment=1, scale='None'):
+                              data_source, datasets_dict = None, task=0, experiment=1, scale='None', model='best'):
      
-
+    
+    
     model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
                     f'/experiment_{experiment}/{classifier.split("_")[:-1][0]}/'\
-                    f'{classifier}/{data_source}/best_model.hdf5'  
+                    f'{classifier}/{data_source}/{model}_model.hdf5'  
     print(model_path)   
     #model_path = f'{root_dir}/results/{archive_name}/{dataset_name}/' \
     #                                + f'{classifier.split("_")[0]}/{classifier}/{data_source}/' \

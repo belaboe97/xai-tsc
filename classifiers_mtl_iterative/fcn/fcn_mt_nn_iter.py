@@ -12,7 +12,7 @@ from utils.utils import calculate_metrics
 from utils.explanations import integrated_gradients
 from utils.explanations import norm 
 
-class Classifier_FCN_MT_AE_ITER:
+class Classifier_FCN_MT_NN_ITER:
 
 	def __init__(self, output_directory, input_shape, nb_classes_1, lossf, gamma, epochs, batch_size, verbose=False, build=True):
 		self.output_directory = output_directory
@@ -54,21 +54,14 @@ class Classifier_FCN_MT_AE_ITER:
 		
 		output_for_task_1 = keras.layers.GlobalAveragePooling1D()(conv3)  # alternative to GlobalAveragePooling1D
 
-		"""
-		Decoder 
-		"""
+		flatten = keras.layers.Flatten()(conv3)
 
-		conv4 = keras.layers.Conv1DTranspose(filters=128, kernel_size=3, padding='same')(conv3)
-		conv4 = keras.layers.BatchNormalization()(conv4)
-		conv4 = keras.layers.Activation('relu')(conv4)
+		#conv1d = keras.layers.Conv1DTranspose(filters=1, kernel_size=3,padding='same',activation="linear")(conv3)
+		#conv1d_flatten =  keras.layers.Flatten()(conv1d)
 
-		conv5 = keras.layers.Conv1DTranspose(filters=256, kernel_size=5, padding='same')(conv4)
-		conv5 = keras.layers.BatchNormalization()(conv5)
-		conv5 = keras.layers.Activation('relu')(conv5)
-
-		conv6 = keras.layers.Conv1DTranspose(filters=128, kernel_size=8, padding='same')(conv5)
-		conv6 = keras.layers.BatchNormalization()(conv6)
-		conv6 = keras.layers.Activation('relu')(conv6)
+		interm_function_1 = keras.layers.Dense(2*input_shape[0], activation='relu')(flatten)
+		interm_function_2 = keras.layers.Dense(2*input_shape[0], activation='relu')(interm_function_1)
+		interm_function_3 = tf.keras.layers.Dense(2*input_shape[0], activation='relu')(interm_function_2)
 
 		#print("Conv6",conv6.shape)
 
@@ -79,7 +72,8 @@ class Classifier_FCN_MT_AE_ITER:
 		"""
 		output_layer_1 = keras.layers.Dense(nb_classes_1, activation='softmax', name='task_1_output')(output_for_task_1)
 
-		output_layer_2 = keras.layers.Conv1DTranspose(filters=input_shape[1], kernel_size=8, padding='same', activation='linear', name='task_2_output')(conv6)
+		output_layer_2 = keras.layers.Dense(input_shape[0], activation='linear', name='task_2_output')(interm_function_3)
+
 
 		#linear
 		"""
@@ -90,7 +84,7 @@ class Classifier_FCN_MT_AE_ITER:
 		model = keras.models.Model(inputs=[input_layer], outputs=[output_layer_1, output_layer_2])
 
 		model.compile(
-			optimizer = keras.optimizers.Adam(), 
+			optimizer = keras.optimizers.Adam(),#learning_rate=0.0001 
 			loss={'task_1_output': 'categorical_crossentropy','task_2_output': self.output_2_loss},
 			loss_weights={'task_1_output': self.gamma, 'task_2_output': 1 -  self.gamma},
 			metrics=['accuracy']) 
@@ -111,21 +105,29 @@ class Classifier_FCN_MT_AE_ITER:
 
 		return model 
 
+	
+
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
 		
 		loss =  []
 		val_loss = [] 
+		updated_epochs  = []
+		m3_score_train = []
+		m3_score_test = []
+
+		annealing = [200,220,240,260, 280, *np.arange(300,350,10), *(np.arange(350,380,5)), *(np.arange(380,390,2)),*(np.arange(390,499,1))]
 
 		for epoch in range(self.epochs):
 			
 
 			batch_size = self.batch_size
-
 			mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
 
 
-			if  epoch > 150 and epoch % 5:
+			if  epoch > 199 and epoch % 20 == 0:#annealing: #epoch > 149 and epoch % 25 == 0:
 				baseline = tf.zeros(len(x_train[0]))
+				y_train_2_old = y_train_2.copy()
+				y_val_2_old = y_val_2.copy()
 				for mode , [xvalues,yvalues] in enumerate([[x_train,y_train_1],[x_val,y_val_1]]):
 					idx = 0
 					pred = self.model.predict(xvalues)
@@ -139,6 +141,25 @@ class Classifier_FCN_MT_AE_ITER:
 						if mode == 1: 
 							y_val_2[idx] = norm(ig_att)
 						idx += 1
+				
+				mean_train_corr = 0 
+				for ts in range(len(y_train_2)): 
+					mean_train_corr += np.corrcoef(y_train_2_old[ts],y_train_2[ts])[0,1]
+
+				
+				mean_test_corr = 0 
+				for ts in range(len(y_val_2)): 
+					mean_test_corr += np.corrcoef(y_val_2_old[ts],y_val_2[ts])[0,1]
+
+				self.model.save(self.output_directory+f'{epoch}_model.hdf5')		
+
+				updated_epochs.append(epoch)
+				m3_score_train.append(mean_train_corr / len(y_train_2))
+				m3_score_test.append(mean_test_corr / len(y_val_2))
+
+
+				print("Train corr", mean_train_corr / len(y_train_2))
+				print("Test corr", mean_test_corr / len(y_val_2))
 
 			start_time = time.time() 
 
@@ -156,6 +177,10 @@ class Classifier_FCN_MT_AE_ITER:
 			metric = "loss"
 			loss.append(hist.history[metric][0])
 			val_loss.append(hist.history['val_' + metric][0])
+		
+		np.savetxt(self.output_directory+f"epochs_updated", updated_epochs, delimiter=',')
+		np.savetxt(self.output_directory+f"m3_change_train", m3_score_train, delimiter=',')
+		np.savetxt(self.output_directory+f"m3_change_test", m3_score_test, delimiter=',')
 
 		np.savetxt(self.output_directory+f"test{epoch}_Loss", loss, delimiter=',')
 		np.savetxt(self.output_directory+f"test{epoch}_Val_Loss", val_loss, delimiter=',')

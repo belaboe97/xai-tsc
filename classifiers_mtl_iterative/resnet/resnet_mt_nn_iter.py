@@ -158,16 +158,6 @@ class Classifier_RESNET_MT_NN_ITER:
 
 		from utils.explanations import norm, integrated_gradients	
 
-		print("SHAPES", y_train_1.shape, y_train_2.shape)
-		"""
-				
-		if not tf.test.is_gpu_available:
-			print('error')
-			exit()
-		"""
-
-		#x_val and y_val are only used to monitor the test loss and NOT for training  
-
 		batch_size = self.batch_size
 
 		mini_batch_size = int(min(x_train.shape[0]/10, batch_size))
@@ -218,6 +208,9 @@ class Classifier_RESNET_MT_NN_ITER:
 			metric = "loss"
 			loss.append(hist.history[metric][0])
 			val_loss.append(hist.history['val_' + metric][0])
+
+
+		
 
 		np.savetxt(self.output_directory+f"test{epoch}_Loss", loss, delimiter=',')
 		np.savetxt(self.output_directory+f"test{epoch}_Val_Loss", val_loss, delimiter=',')

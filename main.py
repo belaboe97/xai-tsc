@@ -37,10 +37,10 @@ else:
 
 
 SEED = 0
-DATASET_NAMES = ['GunPoint']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
+DATASET_NAMES = ['GunPoint','ECG200']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'norm' #minmax
-ITERATIONS = 5
+ITERATIONS = 1
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
@@ -255,7 +255,7 @@ if mode == 'experiment_1':
 if mode == 'experiment_2': 
 
     archive_name = 'ucr'
-    GAMMAS = [0.5]#0.75, 0.5, 0.25]#, 0.5, 0.25]
+    GAMMAS = [0.5]
 
     for dataset_name in DATASET_NAMES: 
 
@@ -378,7 +378,7 @@ if mode == 'experiment_4':
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
         for expl_type in ['fcn_ig_norm']: #,'fcn_cam_raw']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:
-            
+
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])
