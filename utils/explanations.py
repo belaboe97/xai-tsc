@@ -205,8 +205,6 @@ def calculate_ig_attributions(root_dir, archive_name, classifier, dataset_name,
             ig_att = integrated_gradients(model,baseline,series.astype('float32'),
                                         np.argmax(pred[idx]),
                                         task=task)
-                                        #optimize for true values
-                                        #y_pos.index(y_vals[idx]),
             if scale == 'minmax': 
                 ig_att = minmax_norm(ig_att)
             if scale == 'normalized': 

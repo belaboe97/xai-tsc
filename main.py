@@ -377,8 +377,7 @@ if mode == 'experiment_4':
 
         datasets_dict = read_dataset(root_dir, archive_name, dataset_name, 'original', 1)[dataset_name]
 
-        for expl_type in ['fcn_ig_norm']: #,'fcn_cam_raw']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:
-
+        for expl_type in ['fcn_ig_norm','resnet_ig_norm']: #,'fcn_cam_raw']:#,'resnet_ig_raw']:#,'resnet_ig_raw']:#,'fcn_cam_raw']:
 
             #assert same length for all ts
             exp_len = len(datasets_dict[0][0])
@@ -394,8 +393,6 @@ if mode == 'experiment_4':
                 print(os.listdir(mtc_path))
                 for mtclassifier in os.listdir(mtc_path):
                         
-                        if 'mt_ae' not in mtclassifier or "freeze" in mtclassifier or 'resnet' in mtclassifier:  
-                            continue
                         #check only for same explanation types
                         #avoid pycache
                         if not mtclassifier.startswith('_'): 

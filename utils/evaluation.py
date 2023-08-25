@@ -1,12 +1,15 @@
 import numpy as np
 
 
-def calculate_accuaracy_change(model,xvals, attributions): 
+def calculate_accuaracy_change(model,xvals,yvals,attributions, mtl=False): 
     
     # predict
     prediction =  model.predict(xvals)
     # get originally predicted values // we test for mtl learning // each dataset has more than one ts in STL
-    original_prediction = prediction 
+    if mtl: 
+        original_prediction = prediction[0] 
+    else:     
+        original_prediction = prediction 
     #@todo
     #prediction if len(prediction) < 2 else prediction[0] # prediciton 0 --> accuracy # prediction 1 --> feature att estimates 
     # mean scores
@@ -37,20 +40,26 @@ def calculate_accuaracy_change(model,xvals, attributions):
         #print(morf_tss)
         # predict 
 
-    lerf_preds = model.predict(np.array(lerf_tss))
-    morf_preds = model.predict(np.array(morf_tss))
-
+    if mtl: 
+        lerf_preds = model.predict(np.array(lerf_tss))[0]
+        morf_preds = model.predict(np.array(morf_tss))[0]
+    else: 
+        lerf_preds = model.predict(np.array(lerf_tss))
+        morf_preds = model.predict(np.array(morf_tss))
     #print(lerf_preds, morf_preds)
 
     for pred, ls, ms in  zip(original_prediction,lerf_preds,morf_preds):
+
         ypred_label = np.argmax(pred)
 
-        print(pred[ypred_label],ls[ypred_label])
+        #print(ypred_label)
+
+        #print(pred[ypred_label],ls[ypred_label])
 
         #print(ypred_label,pred[ypred_label] - ls[ypred_label],pred[ypred_label],ls[ypred_label], ms[ypred_label])
         #print(pred[ypred_label],ms[ypred_label], ls[ypred_label], pred[ypred_label] - ls[ypred_label])
-        mean_change_zero_imputation_lerf += (pred[ypred_label] - ls[ypred_label]) / pred[ypred_label] #np.abs
-        mean_change_zero_imputation_morf += (pred[ypred_label] - ms[ypred_label]) / pred[ypred_label] #np.abs
+        mean_change_zero_imputation_lerf += (ls[ypred_label] - pred[ypred_label] ) / pred[ypred_label] #np.abs
+        mean_change_zero_imputation_morf += (ms[ypred_label] - pred[ypred_label] ) / pred[ypred_label] #np.abs
     #print(mean_change_zero_imputation_lerf)
     mean_change_zero_imputation_lerf /= len(lerf_tss)
     mean_change_zero_imputation_morf /= len(morf_tss)
