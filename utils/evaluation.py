@@ -66,6 +66,11 @@ def calculate_accuaracy_change(model,xvals,yvals,attributions, mtl=False):
 
     return mean_change_zero_imputation_lerf, mean_change_zero_imputation_morf
 
+
+
+
+"""
+
 def visualize_predictions_flipped(model,xvals,yvals,attributions): 
 
     for ts in range(len(attributions)): 
@@ -97,3 +102,5 @@ def visualize_predictions_flipped(model,xvals,yvals,attributions):
             plt.plot(pred[0][:,pred_label])
     plt.show()
 plt.draw()
+
+"""
