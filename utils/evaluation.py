@@ -1,4 +1,5 @@
 import numpy as np
+import sklearn 
 
 
 def calculate_accuaracy_change(model,xvals,yvals,attributions, mtl=False): 
@@ -69,38 +70,82 @@ def calculate_accuaracy_change(model,xvals,yvals,attributions, mtl=False):
 
 
 
-"""
+def run_flipped_pred_test(model,xvals,yvals,attributions, mtl=False):
+    
+    lerf_flipped_preds = []
+    morf_flipped_preds = []
 
-def visualize_predictions_flipped(model,xvals,yvals,attributions): 
+    results_lerf_acc = []
+    results_morf_acc = []
 
-    for ts in range(len(attributions)): 
-
-        sorted_vals = np.argsort(attributions[ts])
-        xvals = xvals
-        ytrue  = yvals[ts]
-
-        pred_label = np.argmax(model.predict(ig_data_stl[])[0][ts])
-        #print(xvals)
-        sup_array = []
-        if pred_label == 0:
-            for idx in range(0, len(sorted_vals), 1):
-                sup_x  = xvals.copy()
-                #print(sorted_vals[:idx])
-                #print(sorted_vals[:idx])
-                sup_x[sorted_vals[:idx]] = 0
-                sup_array.append(sup_x)
-                #sup_x[sorted_vals[:idx]] = np.nan 
-                # Indices of non-NaN values
-                #not_nan_indices = np.arange(len(sup_x))[~np.isnan(sup_x)]
-                # Linearly interpolate NaN values
-                #interpolated_array = np.interp(np.arange(len(sup_x)), not_nan_indices, sup_x[not_nan_indices])
-                #sup_array.append(interpolated_array)
+    #small workaround to get desired form for comparison
+    enc = sklearn.preprocessing.OneHotEncoder(categories='auto')
+    enc.fit(yvals.reshape(-1,1))
+    transf = enc.transform(yvals.reshape(-1, 1)).toarray()
+    yvals = np.array([np.argmax(tff) for tff in transf]) 
+    
 
 
-            sup_array = np.array(sup_array)
-            pred = ig_model.predict(sup_array)
-            plt.plot(pred[0][:,pred_label])
-    plt.show()
-plt.draw()
 
-"""
+
+    baseline_pred = np.argmax(model.predict(np.expand_dims(np.zeros(len(xvals[0])),0)))
+    
+
+    # Check each iteration
+    for delete_rate in np.arange(0,1.05,0.05): 
+        #Split data by train and test
+        attr =  attributions
+        sup_array_lerf = []
+        sup_array_morf = []
+        #delete percentile for each timeseries 
+        for ts in range(len(attr)):
+            #print(new_data[ts],baseline_pred, new_data[ts] == baseline_pred)
+            if yvals[ts] == baseline_pred:continue
+
+            #Lerf
+            sorted_vals = np.argsort(attr[ts])
+            #print(np.sort(attr[ts][2]))
+            sorted_vals = sorted_vals[:int(len(attr[ts])*delete_rate)]
+            sup_x  = xvals[ts].copy()
+            sup_x[sorted_vals] = 0 
+            sup_array_lerf.append(sup_x)
+            #Morf 
+            sorted_vals = np.argsort(attr[ts])[::-1]
+            #print(np.sort(attr[ts][2])[::-1])
+            #print(sorted_vals)
+            
+            sorted_vals = sorted_vals[:int(len(attr[ts])*delete_rate)]
+            sup_x  =  xvals[ts].copy()
+            sup_x[sorted_vals] = 0 
+            sup_array_morf.append(sup_x)
+
+            # Indices of non-NaN values
+            #not_nan_indices = np.arange(len(sup_x))[~np.isnan(sup_x)]
+            # Linearly interpolate NaN values
+            #interpolated_array = np.interp(np.arange(len(sup_x)), not_nan_indices, sup_x[not_nan_indices])
+        #Get all transformed timeseries data for cycle // 1 indicates test data
+        vals_lerf = sup_array_lerf
+        vals_morf = sup_array_morf
+
+        
+        #lerf_acc = np.array([pr[np.argmax(opr)] for pr,opr in zip(loaded_model.predict(np.array(vals_lerf)),original_pred)]).flatten()
+        #morf_acc = np.array([pr[np.argmax(opr)] for pr,opr in zip(loaded_model.predict(np.array(vals_morf)),original_pred)]).flatten()
+
+        
+        #results_lerf_acc.append(lerf_acc)
+        #results_morf_acc.append(morf_acc)
+        print(np.array(vals_lerf).shape)
+        if mtl: 
+            results_lerf = np.array([np.argmax(pr) for pr in model.predict(np.array(vals_lerf))[0]]).flatten()
+            results_morf = np.array([np.argmax(pr) for pr in model.predict(np.array(vals_morf))[0]]).flatten()
+        else: 
+            results_lerf = np.array([np.argmax(pr) for pr in model.predict(np.array(vals_lerf))]).flatten()
+            results_morf = np.array([np.argmax(pr) for pr in model.predict(np.array(vals_morf))]).flatten()
+        #print(ogd.flatten()[np.where(ogd.flatten()!=baseline_pred)],results_lerf)
+
+        print(len(results_lerf),len(yvals.flatten()[np.where(yvals.flatten()!=baseline_pred)]))
+
+        lerf_flipped_preds.append(list(yvals.flatten()[np.where(yvals.flatten()!=baseline_pred)]==results_lerf).count(False))
+        morf_flipped_preds.append(list(yvals.flatten()[np.where(yvals.flatten()!=baseline_pred)]==results_morf).count(False))
+
+    return lerf_flipped_preds, morf_flipped_preds

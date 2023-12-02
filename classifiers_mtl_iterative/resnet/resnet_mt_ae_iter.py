@@ -208,6 +208,7 @@ class Classifier_RESNET_MT_AE_ITER:
 	def fit(self, x_train, y_train_1,y_train_2, x_val, y_val_1, y_val_2, y_true_1, y_true_2):
 
 		#hardcoded annealing process for 500 epochs
+		# not used in work 
 		annealing = [200,220,240,260, 280, *np.arange(300,350,10), *(np.arange(350,380,5)), *(np.arange(380,390,2)),*(np.arange(390,500,1))]
 		#loss and validation loss
 		loss =  []; val_loss = []; acc = []; val_acc= []

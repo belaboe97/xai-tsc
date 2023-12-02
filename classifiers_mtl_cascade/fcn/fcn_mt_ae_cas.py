@@ -80,8 +80,6 @@ class Classifier_FCN_MT_AE_CAS:
 		concat_input_2 = keras.layers.Concatenate()([flatten_conv6,output_layer_1])
 		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="relu")(concat_input_2)
 		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear")(output_layer_2)
-		scale_flatten = keras.layers.Flatten()(input_layer)
-		output_layer_2 = keras.layers.Multiply(name='task_2_output')([output_layer_2, scale_flatten])
 		"""
 		Specific Output layers: 
 		"""

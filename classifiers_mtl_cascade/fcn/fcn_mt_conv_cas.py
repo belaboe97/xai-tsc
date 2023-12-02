@@ -64,9 +64,8 @@ class Classifier_FCN_MT_CONV_CAS:
 		flatten_conv3 = keras.layers.Flatten()(conv3)
 		concat_input_2 = keras.layers.Concatenate()([flatten_conv3, output_layer_1])
 		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="relu")(concat_input_2)
-		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear")(output_layer_2)
-		scale_flatten = keras.layers.Flatten()(input_layer)
-		output_layer_2 = keras.layers.Multiply(name='task_2_output')([output_layer_2, scale_flatten])
+		output_layer_2 = keras.layers.Dense(units=input_shape[0], activation="linear", name='task_2_output')(output_layer_2)
+
 		"""
 		output_layer_2 = keras.layers.Conv1D(filters=1, kernel_size=1,padding='same',activation="linear")(conv3)
 		output_layer_2 = keras.layers.Flatten()(output_layer_2)
