@@ -143,7 +143,6 @@ if mode == 'experiment_1':
             # Experiment 1a 
             print("Classifier",classifier_name)
         
-            """
             
             for itr in range(5):#ITERATIONS): 
 
@@ -197,7 +196,6 @@ if mode == 'experiment_1':
             exp = create_explanations(att)
             save_explanations(exp, root_dir, archive_name, f'{classifier_name}_ig_norm', dataset_name)
 
-            """
             best_classifier = f'{classifier_name}_{1}'
             att = calculate_ig_attributions(root_dir, archive_name, best_classifier, 
                                             dataset_name, 'original', task=0, scale='softmax')
@@ -206,8 +204,6 @@ if mode == 'experiment_1':
             save_explanations(exp, root_dir, archive_name, f'{classifier_name}_ig_softmax', dataset_name)
 
             mtc_path  = f'{root_dir}/classifiers_mtl/{classifier_name}'
-
-            """
 
             for expl_type in ['fcn_ig_norm', 'resnet_ig_norm']:#,'resnet_ig_raw',]:#,'fcn_cam_raw']:,
                 
@@ -250,7 +246,6 @@ if mode == 'experiment_1':
                                                 'mse', 0, EPOCHS, BATCH_SIZE)
                             
 
-            """
 
 if mode == 'experiment_2': 
 
