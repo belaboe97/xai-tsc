@@ -3,7 +3,7 @@
 
 
 Code for master thesis: (Link will follow)
-Data available at: (Link will follow)
+Data available at: https://osf.io/qxt8v/ (Uploads will follow)
 If any questions persist, please feel free to reach out @ boente.bela@gmail.com
 Forked from repositroy for baseline state-of-the-art classifiers for Time Series Classification: 
 https://github.com/hfawaz/dl-4-tsc

@@ -40,7 +40,7 @@ SEED = 0
 DATASET_NAMES = ['GunPoint','ECG200']#'GunPoint', 'Beef','ECG200']#, 'Beef', 'GunPoint']#,'ECG200']#'Beef','Coffee' ,'GunPoint']
 LOSSES = ['mse']#, 'cosinesim']
 DATASCALING = 'norm' #minmax
-ITERATIONS = 2
+ITERATIONS = 5
 
 print(f'In fixed SEED mode: {SEED}')
 print(f'Epochs for each classifier is set to {EPOCHS} and Batchsize set to {BATCH_SIZE}')
